@@ -1,0 +1,41 @@
+# Linux
+```bash
+mkdir -p supply_chain_monitor/docs/architecture
+```
+###the -p flag stands for "parents".###
+
+It safely ensures the whole directory structure exists in one go.
+
+So essentially, -p = "create the full path if needed, and don’t complain if it’s already there."
+
+---
+
+
+```bash
+python3 -c "import pandas; import sklearn; import fastapi; print('Everything is working!')"
+```
+### the -c flag means "execute the following command string".
+The command after -c is treated as Python code.
+
+It's commonly used in: Shell scripts, Dockerfiles, CI/CD pipelines, Quick checks to see if a package is installed
+
+
+# Setting up a virtual environement
+
+```
+# Create the isolated environment container
+python3 -m venv venv
+
+# Activate the virtual environment
+source venv/bin/activate
+
+# Upgrade pip to secure reliable wheels compilation
+pip install --upgrade pip
+
+# Install the pinned project manifest
+pip install -r requirements.txt
+
+# Build/upgrade the requirements.txt
+pip freeze > requirements.txt
+```
+

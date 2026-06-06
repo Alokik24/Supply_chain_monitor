@@ -1,0 +1,31 @@
+# Python bytecode compilation artifacts
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Local virtual environment isolation binaries
+venv/
+.venv/
+env/
+
+# IDE specific metadata configurations
+.vscode/
+.idea/
+
+# Local state, storage volumes and databases
+postgres_data/
+redis_data/
+
+# Generated local data and model serialization weights
+data/*.csv
+models/*.pkl
+models/*.pt
+
+# Testing diagnostics caches
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Local deployment secret files
+.env
