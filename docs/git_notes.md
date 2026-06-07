@@ -28,7 +28,7 @@ Permanent history stored inside `.git/`.
 git commit -m "<message>"
 ```
 
----
+
 
 # 2. Basic Local Workflow
 
@@ -111,7 +111,6 @@ Compact version:
 git log --oneline
 ```
 
----
 
 # 3. Branching Workflow
 
@@ -119,7 +118,6 @@ git log --oneline
 
 Branches allow independent development without affecting stable code.
 
----
 
 ### Create a New Branch
 
@@ -178,7 +176,6 @@ Example:
 git merge feature/login
 ```
 
----
 
 ### Delete a Branch
 
@@ -194,7 +191,7 @@ Force delete:
 git branch -D <branch-name>
 ```
 
----
+
 
 # 4. Merge Conflicts
 
@@ -228,7 +225,6 @@ git add <resolved-file>
 git commit -m "Resolve merge conflict"
 ```
 
----
 
 # 5. Connecting Git to GitHub
 

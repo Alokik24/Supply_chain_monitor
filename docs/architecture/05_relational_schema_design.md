@@ -15,3 +15,17 @@ The application backend (`src/seed_db.py` during initialization, and FastAPI `PO
 | `torque` | `'torque'` | `sensor_readings` |
 | `conveyor_speed` | `'conveyor_speed'` | `sensor_readings` |
 | `fill_level` | `'fill_level'` | `sensor_readings` |
+
+## 1.1 Ingestion Transformation Rationale & Pipeline Mechanics
+
+### Context & Design Trade-offs
+We evaluated two methods for converting incoming wide hardware payloads into our normalized narrow schema:
+1. **Database-Layer Normalization:** Passing a wide JSON payload to a PostgreSQL stored procedure or trigger to split the rows natively.
+2. **Application-Layer Normalization:** Utilizing our Python backend processing layer (SQLAlchemy/Pandas) to unroll arrays before hitting the wire.
+
+### Decision
+We selected **Application-Layer Normalization**. 
+
+### Empirical System Design Justification
+* **Horizontal Scalability:** Unrolling matrices is CPU-bound work. Shifting this computation out of the database engine to our application layer (FastAPI nodes) ensures our stateful database storage layer only uses its processing cycles for pure ACID transactions, querying, and disk I/O.
+* **Network Throughput:** By utilizing Python to format array variables into an explicit list of dictionaries, SQLAlchemy can execute a highly optimized batch insert block (`connection.execute(query, batch_records)`). This compiles the 3,000 narrow mutations into a single network packet, matching the payload efficiency of a wide write while gaining the indexing benefits of a narrow table layout.
