@@ -12,13 +12,13 @@ def get_database_connection():
     db_name = os.getenv("POSTGRES_DB", "anomaly_monitor")
     
     # Inside Docker network, the host name is "database"
-    host = "database"
+    host = os.getenv("POSTGRES_HOST", "database")
     port = os.getenv("POSTGRES_PORT", "5432")
     
     # Construct the final dynamic URL string
     db_url = f"postgresql://{user}:{password}@{host}:{port}/{db_name}"
     print(f"Connecting to infrastructure pool at: postgresql://{user}:****@{host}:{port}/{db_name}")
-    
+
     try:
         engine = create_engine(db_url, pool_pre_ping=True)
         return engine
