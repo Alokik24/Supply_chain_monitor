@@ -56,7 +56,9 @@ jobs:
           POSTGRES_DB: supply_chain_telemetry
           POSTGRES_HOST: localhost
           POSTGRES_PORT: 5432
-        run: python -m src.seed_db
+        run: |
+          python data/generate.py
+          python -m src.seed_db
 
       - name: Execute Automated Test Suites (Pytest)
         env:
