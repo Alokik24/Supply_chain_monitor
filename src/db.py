@@ -1,3 +1,5 @@
+# src/db.py
+
 import os
 import psycopg2
 from psycopg2.extras import RealDictCursor
@@ -10,8 +12,8 @@ DB_PASSWORD = os.getenv("POSTGRES_PASSWORD", "secret_pass")
 DB_NAME = os.getenv("POSTGRES_DB", "supply_chain_telemetry")
 
 # 2. Database connection parameters
-DB_HOST = "database"
-DB_PORT = "5432"
+DB_HOST = os.getenv("POSTGRES_HOST", "database") # Defaults to local container name
+DB_PORT = os.getenv("POSTGRES_PORT", "5432")
 
 DATABASE_URL = f"postgresql://{DB_USER}:{DB_PASSWORD}@{DB_HOST}:{DB_PORT}/{DB_NAME}"
 
@@ -25,8 +27,11 @@ def get_db_connection():
         return None
 
 # Redis connecection
+REDIS_HOST = os.getenv("REDIS_HOST", "cache")    # Defaults to local container name
+REDIS_PORT = int(os.getenv("REDIS_PORT", 6379))
+
 redis_client = redis.Redis(
-    host="cache",
-    port=6379,
+    host=REDIS_HOST,
+    port=REDIS_PORT,
     decode_responses=True
 )
