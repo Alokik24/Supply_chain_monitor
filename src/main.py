@@ -1,4 +1,3 @@
-import os
 from fastapi import FastAPI
 from src.db import get_db_connection, redis_client
 
