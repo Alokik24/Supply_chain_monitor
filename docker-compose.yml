@@ -1,0 +1,61 @@
+# version: '3.8'
+
+services:
+  # Service 1: Your FastAPI Python Application
+  web:
+    build: .
+    container_name: supply_chain_api
+    restart: always
+    ports:
+      - "8000:8000"
+    env_file:
+      - .env
+    volumes:
+      - .:/code
+    working_dir: /code
+    environment:
+      - POSTGRES_HOST=database
+    command: uvicorn src.main:app --host 0.0.0.0 --port 8000 --reload
+    depends_on:
+      - database
+      - cache
+    networks:
+      - supply_chain_net
+
+  # Service 2: The PostgreSQL Database
+  database:
+    image: postgres:15-alpine
+    container_name: supply_chain_db
+    restart: always
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+    ports:
+      - "5432:5432"
+    volumes:
+      - pg_data:/var/lib/postgresql/data
+    networks:
+      - supply_chain_net
+
+  # Service 3: The Redis Cache Layer
+  cache:
+    image: redis:7-alpine
+    container_name: supply_chain_cache
+    restart: always
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    networks:
+      - supply_chain_net
+
+# Named Volumes to ensure your database logs survive if containers restart
+volumes:
+  pg_data:
+  redis_data:
+
+# The private internal network highway linking our services together
+networks:
+  supply_chain_net:
+    driver: bridge

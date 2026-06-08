@@ -6,13 +6,20 @@ from sqlalchemy import create_engine, text
 
 def get_database_connection():
     """Builds a connection pool to PostgreSQL using our configuration URL."""
-    # Defaults to localhost for Phase 0.2 local verification
-    db_url = os.getenv(
-        "DATABASE_URL", 
-        "postgresql://postgres:postgres@localhost:5432/anomaly_monitor"
-    )
+    # Read the individual environment variables injected by Docker Compose
+    user = os.getenv("POSTGRES_USER", "postgres")
+    password = os.getenv("POSTGRES_PASSWORD", "postgres")
+    db_name = os.getenv("POSTGRES_DB", "anomaly_monitor")
+    
+    # Inside Docker network, the host name is "database"
+    host = "database"
+    port = os.getenv("POSTGRES_PORT", "5432")
+    
+    # Construct the final dynamic URL string
+    db_url = f"postgresql://{user}:{password}@{host}:{port}/{db_name}"
+    print(f"Connecting to infrastructure pool at: postgresql://{user}:****@{host}:{port}/{db_name}")
+    
     try:
-        # pool_pre_ping checks if the database is alive before sending a query
         engine = create_engine(db_url, pool_pre_ping=True)
         return engine
     except Exception as e:
