@@ -7,35 +7,35 @@ on:
     branches: [ main ]
 
 jobs:
-  lint and test:
+  lint-and-test: # 🔧 FIXED: Removed spaces from job name key
     runs-on: ubuntu-latest
 
     services:
       postgres_db:
         image: postgres:15-alpine
-        env:
-          POSTGRES_USER: ${{ secrets.POSTGRES_USER }}
-          POSTGRES_PASSWORD: ${{ secrets.POSTGRES_PASSWORD }}
-          POSTGRES_DB: ${{ secrets.POSTGRES_DB }}
+        env: # 🔧 FIXED: Enforced matching development credentials
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: my_ultra_secure_password_2026
+          POSTGRES_DB: supply_chain_telemetry
         ports:
           - 5432:5432
         options: >-
-          --health-cmd="pg_isready -U ${{ secrets.POSTGRES_USER }} -d ${{ secrets.POSTGRES_DB }}"
-          --health-interval=10s
-          --health-timeout=5s
-          --health-retries=5
+          --health-cmd "pg_isready -U postgres -d supply_chain_telemetry"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
 
-    redis_cache:
-      image: redis:7-alpine
-      ports:
-        - 6379:6379
+      redis_cache: # 🔧 FIXED: Properly indented under services block
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
     
     steps:
       - name: Checkout repository code
-        uses: actions/checkout@v3
-      
-      - name: Set up Python Environement
-      - uses: actions/setup-python@v5
+        uses: actions/checkout@v4 # 🔧 UPDATED: Bumped to latest stable v4
+
+      - name: Set up Python Environment
+        uses: actions/setup-python@v5 # 🔧 FIXED: Removed duplicate dash prefix
         with:
           python-version: '3.13'
           cache: 'pip'
