@@ -17,6 +17,7 @@ env/
 postgres_data/
 redis_data/
 
+
 # Generated local data and model serialization weights
 data/*.csv
 models/*.pkl
