@@ -1,7 +1,7 @@
 # tests/test_features.py
 import pandas as pd
-import numpy as np
 import pytest
+from src.features import generate_window_fetch_query
 
 from src.features import (
     pivot_to_wide,
@@ -188,8 +188,6 @@ def test_compute_delta_from_baseline_isolated(narrow_df):
     
     # Row index 1 baseline drift variance = 900.0 - 1050.0 = -150.0
     assert pytest.approx(processed_df.loc[1, "conveyor_speed_delta_from_baseline"]) == -150.0
-
-from src.features import generate_window_fetch_query
 
 def test_generate_window_fetch_query_syntax():
     """

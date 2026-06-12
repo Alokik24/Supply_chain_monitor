@@ -1,5 +1,7 @@
 import pandas as pd
 import numpy as np
+from sqlalchemy import Engine
+
 
 SENSOR_TYPES = ["conveyor_speed", "fill_level", "torque"]
 WINDOW = 30  # 30-minute rolling window
@@ -117,9 +119,6 @@ def generate_window_fetch_query(window_size: int = 30) -> str:
     ORDER BY line_id, sensor_type, timestamp ASC;
     """
     return query
-
-import pandas as pd
-from sqlalchemy import Engine
 
 def fetch_historical_window_dataframe(db_engine: Engine, window_size: int = 30) -> pd.DataFrame:
     """
