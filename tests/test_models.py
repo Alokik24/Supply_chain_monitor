@@ -1,6 +1,5 @@
 import os
 import json
-import pytest
 import pandas as pd
 import numpy as np
 from src.train import chronological_split
