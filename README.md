@@ -101,16 +101,6 @@ python3 -c "import pandas as pd; df = pd.read_csv('data/sensor_data.csv'); print
 
 ## Local Setup & Operations
 
-### Create Environment Configuration
-
-Create a `.env` file in the project root:
-
-```env
-POSTGRES_USER=postgres
-POSTGRES_PASSWORD=my_ultra_secure_password_2026
-POSTGRES_DB=supply_chain_telemetry
-```
-
 ### Start Infrastructure
 
 ```bash

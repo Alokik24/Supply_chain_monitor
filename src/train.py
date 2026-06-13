@@ -6,7 +6,8 @@ from sklearn.ensemble import IsolationForest, RandomForestClassifier
 from sklearn.metrics import precision_recall_fscore_support, confusion_matrix
 import joblib
 
-from .features import build_feature_matrix, SENSOR_TYPES
+# FIXED: Removed relative dot import to allow top-level file execution
+from features import build_feature_matrix, SENSOR_TYPES
 
 def chronological_split(df: pd.DataFrame, train_ratio: float = 0.8):
     """Splits wide data chronologically to guarantee zero future data leakage."""
@@ -106,7 +107,8 @@ def train_and_evaluate(csv_path: str, output_model_dir: str = "models", metrics_
     with open(metrics_path, "w") as f:
         json.dump(metrics, f, indent=4)
         
-    print(f"--- Phase 1.3 Split Validation Active ---")
+    # FIXED: Extraneous f-string prefix removed to clear Ruff audit compliance
+    print("--- Phase 1.3 Split Validation Active ---")
     print(f"Metrics successfully written to: {metrics_path}")
 
 if __name__ == "__main__":
