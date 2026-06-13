@@ -2,7 +2,7 @@ import os
 import json
 import pandas as pd
 import numpy as np
-from src.train import chronological_split
+from train import chronological_split
 
 def test_chronological_split_preserves_temporal_order():
     """Verifies that data is split sequentially without shuffling time values."""

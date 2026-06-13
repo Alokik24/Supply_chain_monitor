@@ -1,7 +1,7 @@
 # tests/test_features.py
 import pandas as pd
 import pytest
-from src.features import (
+from features import (
     pivot_to_wide,
     compute_rolling_features,
     compute_rate_of_change,

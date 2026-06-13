@@ -1,7 +1,7 @@
 # src/main.py
 
 from fastapi import FastAPI
-from src.db import get_db_connection, redis_client
+from db import get_db_connection, redis_client
 
 app = FastAPI()
 
