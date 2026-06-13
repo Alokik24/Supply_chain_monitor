@@ -1,14 +1,13 @@
 # tests/test_features.py
 import pandas as pd
 import pytest
-from src.features import generate_window_fetch_query
-
 from src.features import (
     pivot_to_wide,
     compute_rolling_features,
     compute_rate_of_change,
     compute_delta_from_baseline,
     build_feature_matrix,
+    generate_window_fetch_query
 )
 
 @pytest.fixture

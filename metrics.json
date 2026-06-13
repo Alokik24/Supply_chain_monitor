@@ -1,0 +1,25 @@
+{
+    "isolation_forest": {
+        "precision": 0.7964,
+        "recall": 0.7751,
+        "f1_score": 0.7856,
+        "confusion_matrix": {
+            "tn": 24354,
+            "fp": 259,
+            "fn": 294,
+            "tp": 1013
+        }
+    },
+    "random_forest": {
+        "precision": 0.9696,
+        "recall": 0.9265,
+        "f1_score": 0.9476,
+        "confusion_matrix": {
+            "tn": 24575,
+            "fp": 38,
+            "fn": 96,
+            "tp": 1211
+        }
+    },
+    "champion_model_deployed": "random_forest"
+}

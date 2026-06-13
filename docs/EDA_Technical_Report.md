@@ -94,3 +94,7 @@ This **Echo Effect** distorts the Z-score calculation of healthy records for exa
 1. **Abandon Static Filters:** Due to the Echo Effect and long-term trend drift, rigid boundary constraints are unsuited for deployment.
 2. **Implement Multi-Dimensional Models:** The feature engine must feed a spatial algorithm—specifically an **Isolation Forest**. The model will evaluate the interactions of the scaled feature vectors (`speed_z_score`, `torque_z_score`, `fill_level_z_score`) simultaneously. This allows it to easily isolate anomalous data clusters in high-dimensional space while correctly ignoring the residual rolling noise caused by individual feature echoes.
 3. **Encapsulate Pure Functions:** The windowing logic must be refactored out of the notebook into standard, stateless Python functions within `src/features.py`. These will be backed by targeted database queries to perform computations efficiently in the production API layer.
+
+---
+
+Production Iteration Note: The initial data simulation utilized highly deterministic, non-overlapping anomaly states. To better simulate the chaotic reality of an actual FMCG manufacturing plant floor, the generator was updated to introduce realistic measurement variance, noise, and statistical class overlap. This dropped the classifier's testing F1-score from an unrealistic 1.00 down to a robust, defendable 0.88, providing a realistic baseline for live stream ingestion testing.

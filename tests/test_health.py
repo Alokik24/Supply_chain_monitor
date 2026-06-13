@@ -1,10 +1,16 @@
 # tests/test_health.py
 
+import os
+import pytest
 from fastapi.testclient import TestClient
 from src.main import app
 
 client = TestClient(app)
 
+@pytest.mark.skipif(
+    not os.getenv("POSTGRES_HOST") or os.getenv("POSTGRES_HOST") == "localhost",
+    reason="Requires Docker services (PostgreSQL and Redis). Skip in local test environments."
+)
 def test_health_endpoint_integration():
     """
     Integration Test: Queries the /health endpoint and verifies that 

@@ -17,19 +17,19 @@ $$\text{Value}_t = \text{Baseline} + \text{Cyclic\_Component}_t + \text{Noise}_t
 Models the physical rotational force applied by the conveyor motor. It is stationary around its mean with standard measurement equipment variance.
 * **Baseline ($\mu$):** $150\text{ Nm}$
 * **Cyclic Component:** None ($0$)
-* **Noise ($N$):** Gaussian White Noise sampled from $\mathcal{N}(\mu=0, \sigma=5)$
+* **Noise ($N$):** Gaussian White Noise sampled from $\mathcal{N}(\mu=0, \sigma=18)$
 
 ### B. Conveyor Speed Stream ($S$)
 Models the physical linear velocity of the packaging line. It contains a diurnal sinusoidal pattern modeling natural factory temperature shifts and motor efficiency cycles throughout the day.
 * **Baseline ($\mu$):** $1200\text{ RPM}$
 * **Cyclic Component:** $10 \times \sin(\text{time\_index} / 60)$
-* **Noise ($N$):** Gaussian White Noise sampled from $\mathcal{N}(\mu=0, \sigma=2)$
+* **Noise ($N$):** Gaussian White Noise sampled from $\mathcal{N}(\mu=0, \sigma=75)$
 
 ### C. Fill Level Stream ($F$)
 Models the volume percentage of fluid successfully deposited into product containers. It is highly stable under normal operating conditions.
 * **Baseline ($\mu$):** $80\%$
 * **Cyclic Component:** None ($0$)
-* **Noise ($N$):** Gaussian White Noise sampled from $\mathcal{N}(\mu=0, \sigma=1)$
+* **Noise ($N$):** Gaussian White Noise sampled from $\mathcal{N}(\mu=0, \sigma=9)$
 
 ---
 
