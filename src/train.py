@@ -75,6 +75,12 @@ def train_and_evaluate(csv_path: str, output_model_dir: str = "models", metrics_
     
     rf = RandomForestClassifier(n_estimators=100, class_weight="balanced", random_state=42)
     rf.fit(X_train, y_train)
+    importance_df = pd.DataFrame({
+        "feature": X_train.columns,
+        "importance": rf.feature_importances_
+    }).sort_values("importance", ascending=False)
+
+    print(importance_df)
     rf_preds = rf.predict(X_test)
     
     # 6. Calculate Metrics

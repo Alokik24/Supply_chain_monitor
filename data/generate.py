@@ -6,33 +6,23 @@ from datetime import datetime, timedelta
 
 
 # ── Baseline noise standard deviations ────────────────────────────────────────
-# These were calibrated empirically against the ARCH-02 anomaly injection ranges
-# (torque: +50–100 Nm, speed: -300–500 RPM, fill: -20–40%) to produce a
-# realistic classification difficulty where:
-#   • Random Forest F1  ≈ 0.88–0.93  (high precision, some missed edge-case jams)
-#   • Isolation Forest  ≈ 0.79–0.83  (solid unsupervised baseline with real FP rate)
-#
-# At the original σ values (5 / 2 / 1), anomaly spikes were 10–20σ events —
-# trivially separable by any classifier and not representative of real plant noise.
-# At these values, anomaly spikes are 3–6σ events with genuine class overlap at
-# the low end of the injection magnitude range.
+# At the original σ values (5 / 2 / 1), anomaly spikes were 10–20σ events — trivially separable by any classifier and not representative of real plant noise.
+# At these values, anomaly spikes are 3–6σ events with genuine class overlap at the low end of the injection magnitude range.
 SIGMA_TORQUE = 18   # Nm   (was 5)
 SIGMA_SPEED  = 75   # RPM  (was 2)
 SIGMA_FILL   = 9    # %    (was 1)
 
 
 def generate_hardware_wide_data():
-    # ── 1. Reproducibility anchor (ARCH-04 §1) ────────────────────────────────
     np.random.seed(42)
 
     days    = 90
     records = days * 24 * 60          # 129,600 one-minute samples
 
-    # Fixed wall-clock origin — datetime.now() drifts across reruns and breaks
-    # any downstream test or notebook that expects stable timestamp values.
+    # Fixed wall-clock origin — datetime.now() drifts across reruns and breaks any downstream test or notebook that expects stable timestamp values.
     start_time = datetime(2025, 9, 14, 0, 0, 0)
 
-    print(f"Generating {records:,} records — ARCH-05 wide payload profile")
+    print(f"Generating {records:,} records")
 
     # ── 2. Timestamps ─────────────────────────────────────────────────────────
     timestamps = [start_time + timedelta(minutes=i) for i in range(records)]
@@ -44,8 +34,7 @@ def generate_hardware_wide_data():
     #   μ = 150 Nm
     torque = 150.0 + np.random.normal(0, SIGMA_TORQUE, records)
 
-    # Conveyor speed: diurnal sinusoid models factory temperature / motor
-    # efficiency cycles across the working day, plus Gaussian noise
+    # Conveyor speed: diurnal sinusoid models factory temperature / motor efficiency cycles across the working day, plus Gaussian noise
     #   μ = 1200 RPM, sinusoid amplitude = 10 RPM, period ≈ 6.28 hr
     speed = (1200.0
              + (10.0 * np.sin(time_indices / 60.0))
@@ -55,23 +44,18 @@ def generate_hardware_wide_data():
     #   μ = 80 %
     fill_level = 80.0 + np.random.normal(0, SIGMA_FILL, records)
 
-    # ── 4. Anomaly injection — Mechanical Conveyor Jam (ARCH-02 §3) ───────────
-    #
+    # ── 4. Anomaly injection — Mechanical Conveyor Jam ───────────
+
     # Physical model: a jam simultaneously stresses all three sensors.
-    # Injection magnitudes are taken directly from the ARCH-02 uniform ranges:
     #   Torque   +50 – +100 Nm   (motor strains against physical resistance)
     #   Speed    -300 – -500 RPM (belt slows due to mechanical friction)
     #   Fill     -20 – -40 %     (bottle misalignment causes underfill / spillage)
-    #
+    
     # Realism layers added beyond a naive single-point spike:
-    #   a) Partial-sensor firing  — each channel fires with independent probability,
-    #      modelling real-world sensor lag and partial jam events.
-    #   b) Magnitude jitter       — ±20% scale on every draw so severity varies,
-    #      pushing low-magnitude events into the class boundary overlap zone.
-    #   c) Temporal bleed         — the jam disturbs t+1 and t+2 at decaying
-    #      intensity, matching the Echo Effect described in the EDA report §5.2.
-    #      Bleed rows are intentionally NOT labelled is_anomaly=1: they are
-    #      residual disturbances the model must tolerate without false-positiving.
+    #   a) Partial-sensor firing  — each channel fires with independent probability, modelling real-world sensor lag and partial jam events.
+    #   b) Magnitude jitter       — ±20% scale on every draw so severity varies, pushing low-magnitude events into the class boundary overlap zone.
+    #   c) Temporal bleed         — the jam disturbs t+1 and t+2 at decaying intensity, matching the Echo Effect described in the EDA report §5.2.
+    #      Bleed rows are intentionally NOT labelled is_anomaly=1: they are residual disturbances the model must tolerate without false-positiving.
 
     is_anomaly      = np.zeros(records, dtype=np.float32)
     n_anomalies     = int(records * 0.05)
@@ -85,7 +69,7 @@ def generate_hardware_wide_data():
     for idx in anomaly_indices:
         is_anomaly[idx] = 1
 
-        # Draw magnitudes from ARCH-02 §3 ranges, jittered ±20%
+        #jittered ±20%
         torque_delta = np.random.uniform(50, 100) * np.random.uniform(0.80, 1.20)
         speed_delta  = np.random.uniform(300, 500) * np.random.uniform(0.80, 1.20)
         fill_delta   = np.random.uniform(20, 40)  * np.random.uniform(0.80, 1.20)
@@ -113,9 +97,9 @@ def generate_hardware_wide_data():
     # ── 5. Build DataFrame & persist ──────────────────────────────────────────
     df = pd.DataFrame({
         'timestamp':      timestamps,
-        'line_id':        'Line_1',   # ARCH-05 tracking field
+        'line_id':        'Line_1',   
         'torque':         torque,
-        'conveyor_speed': speed,       # column name matches ARCH-05 mapping table
+        'conveyor_speed': speed,      
         'fill_level':     fill_level,
         'is_anomaly':     is_anomaly,
     })
@@ -153,11 +137,6 @@ def generate_hardware_wide_data():
         vals = df.loc[clean_indices, col]
         print(f"    {lbl}  μ={vals.mean():8.3f}   σ={vals.std():.3f}  "
               f"(design σ={sigma})")
-    print()
-    print("  Expected model performance (engineered features, no raw values):")
-    print("    Random Forest    F1 ≈ 0.88 – 0.93")
-    print("    Isolation Forest F1 ≈ 0.79 – 0.83")
-    print()
 
 
 if __name__ == "__main__":

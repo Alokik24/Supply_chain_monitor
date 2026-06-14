@@ -1,6 +1,5 @@
 # Supply Chain Anomaly Monitor
-
-A real-time data engineering and machine learning pipeline designed to ingest manufacturing sensor data, identify operational anomalies, and deploy an AI investigation agent to diagnose root causes.
+A real-time anomaly detection platform combining FastAPI, PostgreSQL, Redis, and machine learning to identify manufacturing process failures and support automated root-cause investigation.
 
 ## The System Architecture
 
@@ -9,21 +8,46 @@ The framework splits operations into two parallel runtime channels to maximize w
 1. **The Hot Path (Real-Time):** Ingests incoming sensor telemetry packets, validates incoming structural payloads via FastAPI, and tracks sliding time-window metrics inside Redis for sub-millisecond operational visibility.
 2. **The Cold Path (Asynchronous):** Appends raw records directly into PostgreSQL for immutable storage, processes batches using Scikit-learn models, and leverages an LLM-powered LangChain Agent to append structured root-cause findings.
 
-## Operational Truth Boundaries
+```
+Telemetry Generator
+        │
+        ▼
+ FastAPI Ingestion
+        │
+        ▼
+ PostgreSQL (EAV Storage)
+        │
+        ├────────► Redis Feature Cache
+        │
+        ▼
+ Feature Engineering
+        │
+        ▼
+ Random Forest Model
+        │
+        ▼
+ anomaly_cases
+        │
+        ▼
+ AI Investigation Agent
+ ```
 
-The synthetic data generator simulates a Programmable Logic Controller (PLC) tracking a bottling line over **90 days of continuous operations** (129,600 elapsed baseline minutes). Telemetry is captured across **three distinct line metrics**:
+## Synthetic Data Model
 
-* **Torque ($T$):** Measures motor rotational force. Baseline of $150\text{ Nm}$ with ambient Gaussian noise $\sigma = 18$.
-* **Conveyor Speed ($S$):** Measures belt velocity. Baseline of $1200\text{ RPM}$, modulated by a cyclic daily sine wave ($\pm 10\text{ RPM}$) for temperature shifts, with an ambient noise profile $\sigma = 75$.
-* **Fill Level ($F$):** Measures container liquid volume. Baseline of $80%$ volume with stable noise variance $\sigma = 9$.
+The project uses a deterministic synthetic telemetry generator simulating a manufacturing bottling line over 90 days of operation.
 
-### Correlated Failure Mode: Mechanical Conveyor Jam
+The simulator produces three synchronized sensor streams:
 
-Anomalies comprise **strictly 5%** of total system runtime and simulate a physical line jam where all three attributes break operational limits simultaneously:
+- Torque
+- Conveyor Speed
+- Fill Level
 
-* **Torque Reaction:** Sudden positive uniform spike ($+50\text{ Nm}$ to $+100\text{ Nm}$) as the motor strains against physical friction.
-* **Speed Reaction:** Catastrophic negative uniform drop ($-300\text{ RPM}$ to $-500\text{ RPM}$) as the line grinds to a halt.
-* **Fill Level Reaction:** Severe drop ($-20%$ to $-40%$) as bottle misalignments under the filling nozzles cause liquid spillage and underfills.
+and injects a correlated Mechanical Conveyor Jam failure profile used for anomaly detection benchmarking.
+
+Detailed mathematical definitions, anomaly injection mechanics, and simulation assumptions are documented in:
+
+- ADR-02: Data Generation Strategy & Mathematical Profiles
+- ADR-04: Synthetic Data Limitations & Assumptions
 
 ## Prerequisites
 
@@ -53,7 +77,6 @@ supply_chain_monitor/
 ├── docs/               # System architecture registry documents
 │   └── architecture/   # Structural trade-off logs, ADRs, and Git developer manuals
 ├── src/                # Production application source code
-│   ├── generate.py     # Synthetic telemetry data generator
 │   ├── seed_db.py      # Database initialization & data seeding
 │   ├── features.py     # 30-minute rolling feature engineering pipeline
 │   ├── train.py        # Model training & evaluation (RF + Isolation Forest)
@@ -93,12 +116,6 @@ pip install -r requirements.txt
 python3 data/generate.py
 ```
 
-### 3. Verify Baseline Matrix Integrity
-
-```bash
-python3 -c "import pandas as pd; df = pd.read_csv('data/sensor_data.csv'); print(df.groupby('is_anomaly').mean())"
-```
-
 ## Local Setup & Operations
 
 ### Start Infrastructure
@@ -125,24 +142,6 @@ Then, populate PostgreSQL (run inside the web container):
 ```bash
 docker compose exec web python3 -m src.seed_db
 ```
-
-**Expected output:**
-```
-Connecting to infrastructure pool at: postgresql://postgres:****@database:5432/supply_chain_telemetry
-Reading and applying migration: 001_init_schema.sql...
-Schema tables successfully verified/created.
-Processing hardware log matrix (unrolling wide-to-narrow conversion)...
-Staging database transaction: committing 3000 narrow entries...
-Success! Relational database populated with 1000 wide events (3000 rows).
-
-==================================================
-DATABASE SEED VERIFICATION METRICS:
-==================================================
- Sensor Type: fill_level      | Rows Inserted: 1000  | Calculated Mean: 77.86
- Sensor Type: torque          | Rows Inserted: 1000  | Calculated Mean: 157.73
- Sensor Type: conveyor_speed  | Rows Inserted: 1000  | Calculated Mean: 1163.94
-```
-
 ### Run Automated Tests
 
 ```bash
@@ -159,26 +158,25 @@ docker compose exec web pytest tests/test_health.py -v
 
 ## Feature Engineering Pipeline
 
-The `src/features.py` module transforms raw sensor telemetry into machine-learning-ready feature vectors using a 30-minute rolling window computation:
+Raw telemetry is transformed into machine-learning-ready feature vectors using rolling statistical analysis.
 
-### Feature Extraction Workflow
+Implemented feature categories include:
 
-1. **Narrow-to-Wide Transformation:** Converts database entity-attribute-value (EAV) rows back into a wide matrix format (timestamp, line_id, torque, conveyor_speed, fill_level)
-2. **Rolling Statistics:** Computes 30-minute sliding window means and standard deviations per sensor per production line
-3. **Normalized Scoring:** Calculates Z-scores to capture deviation from baseline (mean = 0, std = 1)
-4. **Rate of Change:** Tracks first-order derivatives to detect sudden velocity shifts
-5. **Baseline Delta:** Measures divergence from global operational averages
+- Rolling statistics
+- Z-score normalization
+- Rate-of-change metrics
+- Baseline deviation measurements
 
-**Key Features Extracted (15 total):**
-- Per-sensor rolling standard deviation
-- Per-sensor Z-score
-- Per-sensor rate of change
-- Per-sensor delta from baseline
+The feature engineering layer is implemented in:
 
 ```python
-from src.features import build_feature_matrix, SENSOR_TYPES
-feature_matrix = build_feature_matrix(df_narrow)  # Returns DataFrame with 15 engineered features
+src/features.py
 ```
+
+For detailed feature-engineering rationale, temporal validation methodology, and evaluation design, see:
+
+- ADR-03: Model Evaluation Framework
+- ADR-05: Telemetry Representation Strategy & Relational Schema Design
 
 ## Model Training & Validation
 
@@ -217,26 +215,11 @@ python3 -c "from src.train import train_and_evaluate; train_and_evaluate('data/s
 docker compose exec web python3 -c "from src.train import train_and_evaluate; train_and_evaluate('data/sensor_data.csv')"
 ```
 
-**Training Output:**
+Models are saved to:
+models/
 
-```
-Engineering features independently for train split...
-Engineering features independently for test split...
-
-========== ISOLATION FOREST EVALUATION ==========
-Precision:  0.7964
-Recall:     0.7751
-F1 Score:   0.7856
-
-========== RANDOM FOREST EVALUATION ==========
-Precision:  0.9696
-Recall:     0.9265
-F1 Score:   0.9476
-
-Champion Model: random_forest
-Models saved to: models/
-Metrics written to: metrics.json
-```
+Evaluation metrics are written to:
+metrics.json
 
 ### Stop Infrastructure
 
@@ -306,15 +289,17 @@ The local runtime stack consists of:
 
 Every push and pull request triggers automated linting, database initialization, data seeding, and test execution.
 
-## Architecture Documentation
+## Architecture Decision Records
 
-Detailed design decisions are maintained in the Architecture Decision Record (ADR) registry:
+Detailed architectural trade-offs and engineering decisions are documented in the ADR registry.
 
-```text
-docs/architecture/
-├── ARCH-01
-├── ARCH-02
-├── ARCH-03
-├── ARCH-04
-└── ARCH-05
-```
+| ADR | Description |
+|------|-------------|
+| ADR-01 | Storage & Ingestion Baseline Selection |
+| ADR-02 | Data Generation Strategy & Mathematical Profiles |
+| ADR-03 | Model Evaluation Framework |
+| ADR-04 | Synthetic Data Limitations & Assumptions |
+| ADR-05 | Telemetry Representation Strategy & Relational Schema Design |
+| ADR-06 | Dataset Audit & Evaluation Validation |
+
+These documents capture the rationale behind database design, feature engineering, model evaluation, telemetry representation, and benchmarking decisions.

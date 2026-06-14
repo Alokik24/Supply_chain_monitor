@@ -28,8 +28,6 @@ Permanent history stored inside `.git/`.
 git commit -m "<message>"
 ```
 
-
-
 # 2. Basic Local Workflow
 
 ### Initialize a Repository
@@ -152,6 +150,7 @@ Use when moving between lines of development.
 ```bash
 git checkout <branch-name>
 ```
+skip the -b if the branch is already created
 
 Example:
 
@@ -310,8 +309,6 @@ git fetch  -> Download only
 git pull   -> Download + Merge
 ```
 
----
-
 # 6. Typical Solo Developer Workflow
 
 Start work:
@@ -367,8 +364,6 @@ Delete feature branch:
 git branch -d feature/new-feature
 ```
 
----
-
 # 7. Most Common Commands and When to Use Them
 
 | Situation               | Command                     |
@@ -387,8 +382,6 @@ git branch -d feature/new-feature
 | View branches           | `git branch`                |
 | Delete merged branch    | `git branch -d <branch>`    |
 | View remotes            | `git remote -v`             |
-
----
 
 # 8. Git vs GitHub
 

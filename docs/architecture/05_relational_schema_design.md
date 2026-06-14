@@ -1,68 +1,428 @@
-# ARCH-05: Relational Schema Integrity & Hardware Mapping
-Status: APPROVED
+# ADR-05: Telemetry Representation Strategy & Relational Schema Design
 
-## 1. The Hardware-to-Software Decoupling
+## Status
 
-Our physical data generation simulates a real-world edge device emitting a unified, concurrent data frame (`timestamp`, `line_id`, `torque`, `conveyor_speed`, `fill_level`). This is modeled as a **Wide Row Structure**.
+Accepted
 
-Our database storage engine implements a normalized **Narrow (Entity-Attribute-Value) Layout**. 
+---
 
-### The Ingestion Transformation Rule
-The application backend (`src/seed_db.py` during initialization, and FastAPI `POST /readings` during streaming execution) acts as the normalization buffer. It intercepts the incoming wide hardware payload, iterates over the dynamic parameter dict, and generates individual, distinct rows for the database.
+# 1. Context
 
-| Source Hardware Attribute | Database `sensor_type` Map | Database Target Table |
-| :--- | :--- | :--- |
-| `torque` | `'torque'` | `sensor_readings` |
-| `conveyor_speed` | `'conveyor_speed'` | `sensor_readings` |
-| `fill_level` | `'fill_level'` | `sensor_readings` |
+The anomaly monitoring pipeline operates across three fundamentally different representations of the same telemetry data.
 
-## 1.1 Ingestion Transformation Rationale & Pipeline Mechanics
+## A. Hardware Representation (Wide Format)
 
-### Context & Design Trade-offs
-We evaluated two methods for converting incoming wide hardware payloads into our normalized narrow schema:
-1. **Database-Layer Normalization:** Passing a wide JSON payload to a PostgreSQL stored procedure or trigger to split the rows natively.
-2. **Application-Layer Normalization:** Utilizing our Python backend processing layer (SQLAlchemy/Pandas) to unroll arrays before hitting the wire.
+Physical edge devices emit a unified telemetry packet containing multiple sensor measurements captured at the same instant.
 
-### Decision
-We selected **Application-Layer Normalization**. 
-
-### Empirical System Design Justification
-* **Horizontal Scalability:** Unrolling matrices is CPU-bound work. Shifting this computation out of the database engine to our application layer (FastAPI nodes) ensures our stateful database storage layer only uses its processing cycles for pure ACID transactions, querying, and disk I/O.
-* **Network Throughput:** By utilizing Python to format array variables into an explicit list of dictionaries, SQLAlchemy can execute a highly optimized batch insert block (`connection.execute(query, batch_records)`). This compiles the 3,000 narrow mutations into a single network packet, matching the payload efficiency of a wide write while gaining the indexing benefits of a narrow table layout.
-
-## Architectural Data Mapping
-
-To guarantee zero-downtime extensibility when adding new physical hardware sensors later, this pipeline explicitly uncouples the hardware data collection from the relational database storage layer:
-
-* **The Edge Layer:** The data generator simulates real-world hardware by outputting a **Wide Payload Data Frame** (`timestamp, line_id, torque, conveyor_speed, fill_level, is_anomaly`).
-* **The Storage Layer:** Our application backend intercepts this wide payload and unrolls it into an asset-agnostic **Narrow Schema Layout** inside PostgreSQL (`id, line_id, sensor_type, value, timestamp`), allowing new sensor lines to be added dynamically as simple runtime string parameters.
-
-
-## Deep-Dive Architecture Decisions (ARCH-05)
-
-### 1. Why Separate `sensor_readings` from `anomaly_cases`?
-* **The Hot-Path / Cold-Path Split Pattern:** `sensor_readings` operates as a high-frequency, append-only, entirely immutable event ledger. It is optimized exclusively to handle raw ingestion writes at production speed. Conversely, `anomaly_cases` functions as a highly mutable transactional state machine tracking ongoing human and AI agent lifecycle investigations (`FLAGGED` -> `INVESTIGATING` -> `RESOLVED`).
-* **Lock Elimination:** Separating these spaces ensures that when an operator or AI agent updates the status of an active incident ticket, row-level database transactional locks are isolated strictly to the minor `anomaly_cases` table. The core high-speed ingestion telemetry path (`sensor_readings`) remains completely unblocked, preventing ingestion latency drift or dropped packets.
-
-### 2. Why Implement an Append-Only `evidence` Table?
-* **Forensic Audit Integrity:** In regulated supply chain and industrial environments, safety diagnostics cannot simply be overwritten or cleared. If an analytical asset links a system failure to a specific variable deviation, that diagnostic proof record must be permanently preserved.
-* **Relational Extensibility:** A mechanical breakdown on a factory floor is rarely caused by an isolated variable spike. A conveyor jam simultaneously causes torque spikes, belt speed degradation, and fluid underfills. Keeping `evidence` as a dedicated child table linked via a foreign key (`case_id`) allows our evaluation layers to append infinite structural proof points over time without running destructive schema alterations on the master tables.
-
-## Hardware Payload Normalization (Wide-to-Narrow)
-
-Our telemetry ingestion pipeline bridges the gap between hardware execution models and optimized storage schemas. 
-
-* **The Hardware Reality (Wide Stream):** Physical edge controllers emit data as a single, concurrent horizontal payload package to reduce device network overhead.
-* **The Storage Reality (Narrow Ledger):** PostgreSQL stores records vertically as an Entity-Attribute-Value (EAV) layout to prevent null-column fragmentation and ensure hyper-efficient time-window lookups.
-
-### The Transformation Blueprint
-
-When a data packet is intercepted by our ingestion engines (`src/seed_db.py` or `POST /readings`), it is instantly unrolled:
+Example:
 
 ```text
-[ Incoming Hardware Frame ]
-  │  (Timestamp: T1, Line: Line_1)
-  ├──► torque: 142.50         ──► DB Row 1: (T1, Line_1, 'torque', 142.50)
-  ├──► conveyor_speed: 1200.0 ──► DB Row 2: (T1, Line_1, 'conveyor_speed', 1200.0)
-  └──► fill_level: 48.90      ──► DB Row 3: (T1, Line_1, 'fill_level', 48.90)
+timestamp, line_id, torque, conveyor_speed, fill_level
 ```
+
+This representation minimizes network overhead and reflects how industrial controllers naturally transmit data.
+
+---
+
+## B. Storage Representation (Narrow EAV Format)
+
+The PostgreSQL storage layer persists each measurement as an independent database row.
+
+Example:
+
+```text
+timestamp | line_id | sensor_type      | value
+------------------------------------------------
+10:00     | Line_1  | torque           | 151.2
+10:00     | Line_1  | conveyor_speed   | 1188.4
+10:00     | Line_1  | fill_level       | 79.6
+```
+
+This Entity-Attribute-Value (EAV) layout was selected in ADR-01 because it provides:
+
+* Efficient append-only ingestion
+* Zero-downtime sensor expansion
+* Consistent indexing strategy
+* Reduced schema migration requirements
+* Runtime flexibility for future sensor additions
+
+---
+
+## C. Analytical Representation (Wide Matrix Format)
+
+Statistical analysis and machine learning models require synchronized machine-state observations.
+
+Example:
+
+```text
+timestamp | torque | conveyor_speed | fill_level
+------------------------------------------------
+10:00     | 151.2  | 1188.4         | 79.6
+```
+
+Operations such as:
+
+* Rolling statistics
+* Z-score calculations
+* Correlation analysis
+* Feature engineering
+* Machine learning inference
+
+operate most naturally on this wide representation.
+
+---
+
+# 2. Decision
+
+The system intentionally maintains separate representations for:
+
+1. Hardware transmission
+2. Database storage
+3. Analytical processing
+
+The application layer acts as the translation boundary between these representations.
+
+## End-to-End Flow
+
+```text
+Wide Hardware Payload
+        ↓
+Application-Layer Normalization
+        ↓
+Narrow EAV Storage (PostgreSQL)
+        ↓
+Application-Layer Pivot
+        ↓
+Wide Analytical Matrix
+        ↓
+Feature Engineering
+        ↓
+Model Training / Inference
+```
+
+This architecture allows each layer to remain optimized for its primary responsibility rather than forcing a single representation across the entire pipeline.
+
+---
+
+# 3. Hardware-to-Storage Transformation
+
+## Application-Layer Normalization
+
+Incoming telemetry payloads are normalized by the application layer:
+
+* `src/seed_db.py` during initialization
+* `POST /readings` during live ingestion
+
+The backend converts a single wide hardware payload into multiple narrow database records before insertion.
+
+| Hardware Attribute | Database `sensor_type` |
+| ------------------ | ---------------------- |
+| `torque`           | `torque`               |
+| `conveyor_speed`   | `conveyor_speed`       |
+| `fill_level`       | `fill_level`           |
+
+### Example Transformation
+
+Incoming payload:
+
+```text
+Timestamp: T1
+Line: Line_1
+
+torque: 142.50
+conveyor_speed: 1200.00
+fill_level: 48.90
+```
+
+Becomes:
+
+```text
+(T1, Line_1, 'torque', 142.50)
+(T1, Line_1, 'conveyor_speed', 1200.00)
+(T1, Line_1, 'fill_level', 48.90)
+```
+
+---
+
+## Why Application-Layer Normalization?
+
+Two alternatives were evaluated.
+
+### Option A: Database-Layer Normalization
+
+PostgreSQL triggers or stored procedures split incoming payloads after arrival.
+
+### Option B: Application-Layer Normalization
+
+The backend performs the transformation before transmission to PostgreSQL.
+
+### Decision
+
+Application-Layer Normalization was selected.
+
+### Rationale
+
+#### Horizontal Scalability
+
+Payload normalization is CPU-bound work.
+
+Executing transformations within application services allows PostgreSQL resources to remain focused on:
+
+* Transaction processing
+* Query execution
+* Index maintenance
+* Disk I/O
+
+#### Efficient Bulk Inserts
+
+The application converts normalized records into batched insert payloads:
+
+```python
+connection.execute(insert_query, batch_records)
+```
+
+This allows thousands of telemetry records to be committed within a single transaction while preserving EAV flexibility.
+
+---
+
+# 4. Storage-to-Analytics Transformation
+
+## Application-Layer Pivoting
+
+While EAV is ideal for ingestion and storage, it is poorly suited for statistical analysis.
+
+Analytical workloads require synchronized machine-state vectors.
+
+Therefore, telemetry is extracted from PostgreSQL and pivoted into a wide matrix using Pandas.
+
+### Storage Representation
+
+```text
+timestamp | sensor_type      | value
+--------------------------------------
+10:00     | torque           | 151.2
+10:00     | conveyor_speed   | 1188.4
+10:00     | fill_level       | 79.6
+```
+
+### Analytical Representation
+
+```text
+timestamp | torque | conveyor_speed | fill_level
+------------------------------------------------
+10:00     | 151.2  | 1188.4         | 79.6
+```
+
+### Why Pivot?
+
+Many analytical operations become difficult or mathematically invalid when executed directly against EAV telemetry.
+
+Examples include:
+
+* Rolling Means
+* Rolling Standard Deviations
+* Z-Scores
+* Rate-of-Change Calculations
+* Correlation Analysis
+* Feature Scaling
+* Multivariate Anomaly Detection
+
+Without reconstructing synchronized machine states, calculations risk mixing unrelated physical measurements and losing temporal relationships between sensors.
+
+---
+
+# 5. Relational Schema Design
+
+The database layer is intentionally divided into three entities with distinct responsibilities.
+
+## sensor_readings
+
+Stores raw telemetry.
+
+Characteristics:
+
+* Append-only
+* Immutable
+* High-frequency writes
+* Time-series event ledger
+
+Optimized for ingestion throughput.
+
+---
+
+## anomaly_cases
+
+Stores anomaly workflow state.
+
+Characteristics:
+
+* Mutable lifecycle records
+* Investigation tracking
+* Human and AI interactions
+
+Example lifecycle:
+
+```text
+FLAGGED
+    ↓
+INVESTIGATING
+    ↓
+RESOLVED
+```
+
+Optimized for operational workflows.
+
+---
+
+## evidence
+
+Stores structured anomaly explanations.
+
+Characteristics:
+
+* Append-only
+* Linked to anomaly cases
+* Supports multiple evidence records
+
+Example:
+
+```text
+Case #101
+├── Torque Spike
+├── Speed Drop
+└── Underfill Event
+```
+
+Optimized for auditability and extensibility.
+
+---
+
+# 6. Why Separate `sensor_readings` from `anomaly_cases`?
+
+These tables serve fundamentally different workloads.
+
+### sensor_readings
+
+Hot Path
+
+* High-volume inserts
+* Immutable records
+* Time-series storage
+
+### anomaly_cases
+
+Workflow Path
+
+* Frequent updates
+* State transitions
+* Investigation management
+
+Separating these concerns prevents workflow updates from interfering with telemetry ingestion and allows each table to be optimized independently.
+
+---
+
+# 7. Why an Append-Only `evidence` Table?
+
+Industrial failures rarely have a single root indicator.
+
+A conveyor jam may simultaneously generate:
+
+* Torque spikes
+* Speed degradation
+* Underfill conditions
+
+A dedicated evidence table allows multiple supporting observations to be attached to a single anomaly case.
+
+Benefits include:
+
+* Auditability
+* Historical traceability
+* Extensibility
+* Multiple evidence records per case
+* Future compatibility with advanced explainability systems
+
+---
+
+# 8. Consequences
+
+## Positive
+
+### Independent Optimization
+
+Each layer is optimized for its primary responsibility.
+
+| Layer      | Optimized For          |
+| ---------- | ---------------------- |
+| Hardware   | Efficient transmission |
+| PostgreSQL | Ingestion & storage    |
+| Analytics  | Statistics & ML        |
+
+### Zero-Downtime Sensor Expansion
+
+New sensor types can be added as runtime values without schema modifications.
+
+### Cleaner Feature Engineering
+
+Pivoted analytical matrices enable straightforward vectorized feature calculations.
+
+### Machine Learning Compatibility
+
+Wide matrices naturally align with:
+
+* Isolation Forest
+* Random Forest
+* Future real-time scoring pipelines
+
+---
+
+## Negative
+
+### Additional Transformations
+
+Telemetry undergoes two explicit format conversions:
+
+```text
+Wide
+↓
+Narrow
+↓
+Wide
+```
+
+adding computational overhead.
+
+### Increased Memory Usage
+
+Pivoting requires loading telemetry into application memory.
+
+Large analytical workloads require careful query boundaries and windowing strategies.
+
+### Conceptual Complexity
+
+Developers must understand multiple representations of the same telemetry depending on system context.
+
+---
+
+# 9. Outcome
+
+The system intentionally separates:
+
+## Operational Representation
+
+Optimized for:
+
+* Telemetry ingestion
+* Storage
+* Indexing
+* Schema flexibility
+
+## Analytical Representation
+
+Optimized for:
+
+* Statistical analysis
+* Feature engineering
+* Model training
+* Real-time anomaly scoring
+
+This architecture allows storage and analytical concerns to evolve independently while preserving both ingestion efficiency and machine learning compatibility.
