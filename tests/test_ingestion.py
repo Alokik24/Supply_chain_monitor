@@ -11,7 +11,7 @@ from sqlalchemy.ext.asyncio import (
     AsyncSession,
 )
 
-from src.database import Base, get_db
+from src.database import get_db
 from src.main import app
 
 load_dotenv()
