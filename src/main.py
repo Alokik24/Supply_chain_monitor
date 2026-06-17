@@ -16,24 +16,22 @@ from src.database import get_db
 #     async with engine.begin() as conn:
 #         await conn.run_sync(Base.metadata.create_all)
 #     yield
-#     pass 
+#     pass
 
-app = FastAPI(
-    title="Supply Chain Anomaly Detection API",
-    version="1.0"
-)
+app = FastAPI(title="Supply Chain Anomaly Detection API", version="1.0")
+
 
 @app.get("/")
 def read_root():
     health_status = {"api_status": "Live-Reload Activated"}
-    
+
     # Test Redis Channel Connection
     try:
         redis_client.ping()
         health_status["redis_cache"] = "Connected"
     except Exception:
         health_status["redis_cache"] = "Disconnected"
-        
+
     # Test Postgres Database Connection
     db_conn = get_db_connection()
     if db_conn:
@@ -41,8 +39,9 @@ def read_root():
         db_conn.close()
     else:
         health_status["postgres_db"] = "Disconnected"
-        
+
     return health_status
+
 
 @app.get("/health")
 async def health_check(db: AsyncSession = Depends(get_db)):
@@ -52,11 +51,14 @@ async def health_check(db: AsyncSession = Depends(get_db)):
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-            detail=f"Database connection failed : {str(e)}"
+            detail=f"Database connection failed : {str(e)}",
         )
 
+
 @app.post("/readings", status_code=status.HTTP_200_OK)
-async def ingest_sensor_reading(payload: SensorReadingCreate, db: AsyncSession = Depends(get_db)):
+async def ingest_sensor_reading(
+    payload: SensorReadingCreate, db: AsyncSession = Depends(get_db)
+):
     """
     Ingests single raw sensor events strictly using an idempotent atomic operation.
     If the event is a network duplicate retry, ignores the write command gracefully.
@@ -66,27 +68,28 @@ async def ingest_sensor_reading(payload: SensorReadingCreate, db: AsyncSession =
         line_id=payload.line_id,
         sensor_type=payload.sensor_type,
         value=payload.value,
-        timestamp=payload.timestamp
+        timestamp=payload.timestamp,
     )
 
     # Enforce atomic engine deduplication via constraint check
-    idempotent_stmt = stmt.on_conflict_do_nothing(
-        constraint="uq_line_sensor_timestamp"
-    )
+    idempotent_stmt = stmt.on_conflict_do_nothing(constraint="uq_line_sensor_timestamp")
 
     try:
         result = await db.execute(idempotent_stmt)
         await db.commit()
-        
+
         # Verify if record was actually written to ledger or safely skipped
         if result.rowcount == 0:
-            return {"status": "ignored", "detail": "Duplicate reading processed idempotently."}
-        
+            return {
+                "status": "ignored",
+                "detail": "Duplicate reading processed idempotently.",
+            }
+
         return {"status": "success", "detail": "Reading captured successfully."}
-        
+
     except Exception as e:
         await db.rollback()
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Pipeline ingestion failure: {str(e)}"
+            detail=f"Pipeline ingestion failure: {str(e)}",
         )

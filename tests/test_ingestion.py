@@ -30,6 +30,7 @@ TEST_DATABASE_URL = (
 # DATABASE SETUP
 # ==========================================================
 
+
 @pytest_asyncio.fixture(scope="session")
 async def test_engine():
     engine = create_async_engine(
@@ -71,6 +72,7 @@ async def override_db(db_session):
 # TESTS
 # ==========================================================
 
+
 @pytest.mark.asyncio
 async def test_successful_hot_path_ingestion(override_db):
 
@@ -85,7 +87,6 @@ async def test_successful_hot_path_ingestion(override_db):
         transport=ASGITransport(app=app),
         base_url="http://testserver",
     ) as client:
-
         response = await client.post("/readings", json=payload)
 
         assert response.status_code == 200
@@ -106,7 +107,6 @@ async def test_pydantic_validation_gate_rejection(override_db):
         transport=ASGITransport(app=app),
         base_url="http://testserver",
     ) as client:
-
         response = await client.post("/readings", json=payload)
 
         assert response.status_code == 422
@@ -128,7 +128,6 @@ async def test_ingest_idempotency_deduplication(override_db):
         transport=ASGITransport(app=app),
         base_url="http://testserver",
     ) as client:
-
         first = await client.post("/readings", json=payload)
 
         assert first.status_code == 200

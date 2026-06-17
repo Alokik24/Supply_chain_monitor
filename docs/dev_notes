@@ -39,3 +39,9 @@ pip install -r requirements.txt
 pip freeze > requirements.txt
 ```
 
+## Quick Ruff Sanity Check
+```
+ruff check .
+ruff format --check .
+pytest tests/
+```
