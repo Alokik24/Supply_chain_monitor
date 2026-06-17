@@ -4,7 +4,6 @@ from fastapi import FastAPI, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy import text
-from contextlib import asynccontextmanager
 from src.db import get_db_connection, redis_client
 
 from src.schemas import SensorReadingCreate
