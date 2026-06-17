@@ -426,3 +426,145 @@ Optimized for:
 * Real-time anomaly scoring
 
 This architecture allows storage and analytical concerns to evolve independently while preserving both ingestion efficiency and machine learning compatibility.
+
+# 10. Implementation Validation (Phase 2.1)
+
+Following acceptance of this architecture, the telemetry ingestion platform was implemented and validated using the complete synthetic manufacturing telemetry dataset.
+
+## Implemented Components
+
+The architecture described in this ADR was realized through the following operational components.
+
+### Data Generation Layer
+
+* Synthetic telemetry generator
+* 90-day manufacturing simulation
+* Multi-sensor production line model
+
+### Ingestion Layer
+
+* FastAPI REST ingestion service
+* Pydantic request validation
+* Asynchronous SQLAlchemy persistence
+
+### Storage Layer
+
+* PostgreSQL event ledger
+* Composite uniqueness constraint
+* Idempotent insert operations
+
+### Replay Infrastructure
+
+* Asynchronous telemetry replay engine
+* Rate-limited event streaming
+* Concurrent HTTP ingestion testing
+
+---
+
+## Operational Validation
+
+A full end-to-end replay execution was conducted against the live ingestion platform.
+
+### Replay Results
+
+| Metric                        | Result     |
+| ----------------------------- | ---------- |
+| Wide Telemetry Rows Processed | 129,600    |
+| Sensor Streams Per Row        | 3          |
+| Normalized Events Generated   | 388,800    |
+| API Validation                | Successful |
+| Database Persistence          | Successful |
+| Duplicate Protection          | Verified   |
+| Integration Tests             | Passed     |
+
+The replay engine exercised the complete ingestion path:
+
+```text
+Synthetic Dataset
+        ↓
+Replay Engine
+        ↓
+FastAPI API
+        ↓
+Validation Layer
+        ↓
+PostgreSQL Storage
+```
+
+without requiring schema modifications or architectural changes.
+
+---
+
+## Observations
+
+Several implementation outcomes validated the original design assumptions.
+
+### EAV Storage Flexibility
+
+The normalized telemetry schema successfully stored multiple sensor streams using a single relational structure.
+
+No schema changes were required throughout development or replay execution.
+
+### Idempotent Persistence
+
+Database-enforced duplicate protection proved more reliable than maintaining duplicate tracking logic within the application layer.
+
+The composite uniqueness constraint successfully absorbed replayed events and duplicate submissions.
+
+### Separation of Concerns
+
+Maintaining independent representations for:
+
+* Hardware transmission
+* Database storage
+* Analytical processing
+
+simplified implementation and reduced coupling between ingestion and analytical workloads.
+
+### Replay-Based Verification
+
+The asynchronous replay engine provided a practical mechanism for validating ingestion behavior under sustained load using realistic telemetry data.
+
+This enabled end-to-end verification without requiring physical manufacturing equipment.
+
+---
+
+## Lessons Learned
+
+### Docker Networking
+
+Containerized services communicate through Docker network hostnames rather than localhost.
+
+This became a critical consideration during database initialization and service orchestration.
+
+### Database Initialization
+
+Application startup and database schema creation should remain separate responsibilities.
+
+Explicit schema initialization proved easier to reason about than embedding migration logic directly into service startup.
+
+### Transaction Boundaries
+
+Integration testing revealed several asynchronous transaction and event-loop edge cases that were resolved through isolated testing databases and dedicated session management.
+
+### Storage Strategy
+
+The chosen EAV design introduced additional transformation steps but substantially simplified ingestion, schema evolution, and future sensor expansion.
+
+---
+
+## Final Assessment
+
+Phase 2.1 implementation validated the core decision documented in this ADR.
+
+The architecture successfully supported:
+
+* High-volume telemetry ingestion
+* Normalized relational storage
+* Idempotent event processing
+* Asynchronous replay testing
+* Future analytical expansion
+
+without requiring changes to the original telemetry representation strategy.
+
+The decision to separate hardware transmission, database storage, and analytical representations proved operationally sound and remains the recommended architecture for subsequent phases of the project.

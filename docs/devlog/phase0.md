@@ -1,37 +1,160 @@
-# Phase 0 Setup: Building the Foundation Before the ML
+# Phase 1: Understanding the Data Before Training the Models
 
-When I started this project, I thought the interesting part would be anomaly detection models and AI agents. After finishing Phase 0, I realized most of the work was actually about building a reliable foundation. Before any model can predict failures, the system needs a way to generate data, store it, validate it, test it, and run consistently across different environments.
+When I finished building the synthetic telemetry generator, my instinct was to move directly into anomaly detection models. After all, that was the original goal of the project. The more I thought about it, the more uncomfortable that felt.
 
-## Why I Split Telemetry and Investigation Data
+I had generated thousands of rows of telemetry, but I didn't actually understand the data yet.
 
-One of the first design decisions was separating raw sensor readings from investigation cases. Initially, I considered keeping everything in one place because it felt simpler. The more I thought about it, the more it felt like two different types of data. Sensor readings are facts. Once a reading is generated, it should never change. Investigation cases are different because their status changes over time. A case can be flagged, investigated, and eventually resolved. Splitting these tables made the design easier to reason about and helped me understand why many systems separate immutable events from mutable business state.
+Before training any model, I wanted to answer a simpler question:
 
-## Why Evidence Became Append-Only
+> If I looked at the sensor readings myself, could I tell when something was going wrong?
 
-The idea of an append-only evidence table came from thinking about how investigations actually work. If an anomaly is detected, I might initially have one piece of supporting evidence and later discover two more. Deleting or overwriting earlier evidence felt wrong because it destroys the history of how the conclusion was reached. By making evidence append-only, the system keeps a trail of observations instead of only storing the final answer. It also makes future extensions easier because new evidence types can simply be added without changing existing records.
+That became the starting point for Phase 1.
 
-## Understanding the Wide-to-Narrow Transformation
+---
 
-This was probably the most confusing design decision at first. The synthetic hardware generator naturally produces rows that look like real sensor packets:
+## What the EDA Revealed
 
-```text
-timestamp | torque | speed | fill_level
-```
+I began by exploring the generated telemetry and comparing normal operating periods against the injected anomaly windows.
 
-My first instinct was to store the data exactly like that. While working through the schema design, I realized that adding a new sensor later would require changing the database structure. The narrow format avoids that problem because sensors become data instead of columns. The trade-off is that one hardware packet turns into multiple database rows. Once I implemented the transformation in `seed_db.py`, the reasoning finally clicked for me.
+Initially, I expected the anomalies to stand out clearly. Since I had created the simulation myself, I assumed the failures would be obvious.
 
-## What Docker Compose Actually Taught Me
+The reality was more interesting.
 
-Before this project, Docker felt like a complicated packaging tool. I could follow tutorials, but I didn't really understand why things were configured the way they were. The biggest lesson came from figuring out how FastAPI, PostgreSQL, and Redis communicate. I originally assumed Docker somehow made everything automatically discoverable. After spending time with Docker Compose, I realized that Compose creates the network, but my application still needs to know where services are located. The way I think about it now is that Docker creates the roads, while environment variables tell the application which address to drive to.
+Some anomaly periods were easy to spot. Others blended into the natural variation of the manufacturing process much more than I expected. A torque spike might be visible in one situation and almost disappear in another. Fill-level behaviour was sometimes informative and sometimes not.
 
-## What I Learned From GitHub Actions
+The biggest observation was that anomalies rarely appeared as isolated sensor problems.
 
-I started Phase 0 thinking CI was mostly about running tests automatically. Setting up GitHub Actions changed that understanding. Every workflow starts from a completely fresh machine. If the pipeline succeeds, it means the project can rebuild itself from scratch without relying on anything stored on my laptop. That made me think differently about project setup. The workflow became a way to verify that the repository contains everything needed to reproduce the environment.
+When something went wrong, multiple sensors tended to react together.
 
-## What Would Break If Sensors Started Sending Duplicate Events?
+A conveyor slowdown affected speed measurements, but it also influenced torque and fill-level behaviour. Looking at individual sensor values only told part of the story.
 
-My first answer would have been database performance. After thinking through the design, I realized the bigger problem is data quality. Right now, the system assumes every incoming event is legitimate. If the same reading is accidentally sent multiple times, those duplicates would influence averages, rolling metrics, and eventually anomaly detection results. The database can store duplicates without complaint, but the insights produced from that data would become less trustworthy. That made me realize that scaling a system isn't only about handling more traffic. Sometimes it's about making sure the data remains correct as volume increases.
+That realization changed the direction of the phase.
+
+The problem was no longer:
+
+> Can I detect anomalies?
+
+Instead, it became:
+
+> How do I represent machine behaviour in a way that makes anomalies easier to identify?
+
+---
+
+## Moving Beyond Raw Sensor Values
+
+The EDA suggested that a single measurement was often less useful than its relationship to recent history.
+
+A torque value of 170 might be completely normal in one operating condition and highly unusual in another.
+
+The raw number alone didn't provide enough context.
+
+I started experimenting with rolling statistics to capture how a sensor was behaving relative to its recent baseline.
+
+This led to the feature engineering pipeline.
+
+Instead of feeding models raw telemetry, I began constructing features such as:
+
+* Rolling means
+* Rolling standard deviations
+* Z-scores
+* Rate-of-change metrics
+* Baseline deviation measures
+
+What surprised me was how much clearer the anomaly patterns became once historical context was introduced.
+
+The engineered features felt less like measurements and more like descriptions of system behaviour.
+
+At that point, I started seeing feature engineering as more than a preprocessing step. It was becoming the bridge between raw telemetry and meaningful operational signals.
+
+---
+
+## A New Problem Appeared
+
+Once the feature pipeline was working, another question surfaced.
+
+If these engineered features were useful, how would they exist in a real system?
+
+During offline analysis, generating them was easy. I already had access to the entire dataset.
+
+A live system would be different.
+
+A new telemetry event arrives.
+
+The model needs rolling statistics.
+
+Where do those statistics come from?
+
+My first instinct was simple: query PostgreSQL whenever a prediction is needed and calculate everything on demand.
+
+The idea worked on paper.
+
+The more I thought about it, the less practical it seemed.
+
+Every prediction would require additional database queries. As the telemetry volume increased, those analytical calculations would begin competing with ingestion workloads.
+
+The system would spend more time rebuilding context than making decisions.
+
+This was the first time I encountered the idea of a feature store.
+
+I didn't implement one during Phase 1, but the concept immediately made sense. Instead of repeatedly recalculating historical features, the system could maintain them separately and serve them directly when needed.
+
+That realization would eventually influence the architecture of later phases.
+
+---
+
+## Evaluating the Models
+
+With the feature engineering pipeline in place, I finally turned my attention to model validation.
+
+At first, I was focused on model selection.
+
+Should I use Isolation Forest?
+
+Would Random Forest perform better?
+
+Would another anomaly detection algorithm be more appropriate?
+
+The more I read, the more I realized I was asking the wrong question.
+
+Before comparing models, I needed confidence that the evaluation process itself was trustworthy.
+
+Time-series data introduces a unique problem: leakage.
+
+It is surprisingly easy to accidentally allow future information to influence past predictions. Strong evaluation metrics become meaningless if the testing process is flawed.
+
+As a result, I spent more time thinking about validation than algorithms.
+
+I established a chronological train-test split and carefully separated feature generation between the training and testing periods.
+
+Only after that did I begin evaluating models.
+
+I chose two approaches.
+
+Isolation Forest served as an unsupervised baseline because real manufacturing environments often have very limited labeled failure data.
+
+Random Forest provided a supervised comparison using the anomaly labels available in the synthetic dataset.
+
+The results were encouraging, but they weren't the most important outcome of the phase.
+
+What mattered more was gaining confidence that the engineered features were capturing meaningful signals and that the evaluation process was defensible.
+
+---
 
 ## Looking Back
 
-The most valuable part of Phase 0 wasn't Docker, PostgreSQL, Redis, or GitHub Actions individually. It was understanding how they fit together. Before starting, these tools felt like separate technologies that appeared in job descriptions. After building the project, I started seeing them as parts of the same system: data generation, storage, networking, validation, and automation. The anomaly detection models will come later, but Phase 0 gave me a much better understanding of the infrastructure those models will depend on.
+At the beginning of Phase 1, I viewed anomaly detection primarily as a modelling problem.
+
+By the end of the phase, I had a very different perspective.
+
+The models were important, but they sat on top of several layers of work:
+
+* Understanding the data
+* Creating meaningful features
+* Designing a reliable evaluation process
+* Thinking about how features would eventually be served in real time
+
+The biggest lesson was that machine learning systems are rarely limited by algorithms alone.
+
+The quality of the data representation often matters just as much as the model consuming it.
+
+Phase 1 started with a dataset and ended with a much clearer understanding of what the rest of the system would need to become.

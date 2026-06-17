@@ -6,7 +6,10 @@ CREATE TABLE IF NOT EXISTS sensor_readings (
     line_id VARCHAR(50) NOT NULL,
     sensor_type VARCHAR(50) NOT NULL, -- Evaluates to: 'torque', 'conveyor_speed', 'fill_level'
     value DOUBLE PRECISION NOT NULL,
-    timestamp TIMESTAMP WITH TIME ZONE NOT NULL --
+    timestamp TIMESTAMP WITH TIME ZONE NOT NULL,
+
+    -- Critical unique constraint added to enforce real-world ingestion idempotency
+    CONSTRAINT uq_line_sensor_timestamp UNIQUE (line_id, sensor_type, timestamp)
 );
 
 -- Indexing composite layout to keep our sliding time-window features blazing fast
@@ -19,7 +22,7 @@ CREATE TABLE IF NOT EXISTS anomaly_cases (
     reading_id BIGINT UNIQUE NOT NULL, -- Strict one-to-one link to the trigger reading
     status VARCHAR(30) NOT NULL DEFAULT 'FLAGGED', -- States: FLAGGED, INVESTIGATING, RESOLVED
     score DOUBLE PRECISION NOT NULL, -- Machine Learning inference anomaly score
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP, --
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (reading_id) REFERENCES sensor_readings(id) ON DELETE CASCADE
 );
 

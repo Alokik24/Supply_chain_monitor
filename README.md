@@ -1,7 +1,11 @@
 # Supply Chain Anomaly Monitor
-A real-time anomaly detection platform combining FastAPI, PostgreSQL, Redis, and machine learning to identify manufacturing process failures and support automated root-cause investigation.
 
-## The System Architecture
+## Overview
+Real-time telemetry ingestion platform for manufacturing systems, built with FastAPI, PostgreSQL, Redis and asynchronous event processing.
+
+The platform ingests high-volume sensor telemetry, enforces idempotent writes, stores normalized event records, and provides the foundation for anomaly detection and automated investigations.
+
+## Current System Architecture
 
 The framework splits operations into two parallel runtime channels to maximize write throughput while ensuring transactional state consistency:
 
@@ -9,28 +13,52 @@ The framework splits operations into two parallel runtime channels to maximize w
 2. **The Cold Path (Asynchronous):** Appends raw records directly into PostgreSQL for immutable storage, processes batches using Scikit-learn models, and leverages an LLM-powered LangChain Agent to append structured root-cause findings.
 
 ```
-Telemetry Generator
-        │
-        ▼
- FastAPI Ingestion
-        │
-        ▼
- PostgreSQL (EAV Storage)
-        │
-        ├────────► Redis Feature Cache
-        │
-        ▼
- Feature Engineering
-        │
-        ▼
- Random Forest Model
-        │
-        ▼
- anomaly_cases
-        │
-        ▼
- AI Investigation Agent
+Synthetic Telemetry Generator
+            │
+            ▼
+     CSV Dataset
+            │
+            ▼
+   Async Replay Engine
+            │
+            ▼
+      FastAPI API
+            │
+            ▼
+  Pydantic Validation
+            │
+            ▼
+  Idempotent Upsert Layer
+            │
+            ▼
+     PostgreSQL
  ```
+
+### Planned Future pipeline
+```
+sensor_readings
+      ↓
+Feature Store
+      ↓
+Anomaly Detection
+      ↓
+anomaly_cases
+      ↓
+Evidence Engine
+```
+
+## Implemented Features
+```
+ Dockerized infrastructure
+ FastAPI ingestion service
+ PostgreSQL persistence layer
+ Redis integration
+ Idempotent ingestion
+ Async replay engine
+ Integration tests
+ Synthetic telemetry generation
+ Health monitoring endpoints
+```
 
 ## Synthetic Data Model
 

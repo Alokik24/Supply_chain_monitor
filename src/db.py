@@ -5,14 +5,13 @@ import psycopg2
 from psycopg2.extras import RealDictCursor
 import redis
 
-
 # 1. Fetch our hidden environment secrets from the container RAM
 DB_USER = os.getenv("POSTGRES_USER", "postgres")
-DB_PASSWORD = os.getenv("POSTGRES_PASSWORD", "secret_pass")
+DB_PASSWORD = os.getenv("POSTGRES_PASSWORD", "postgres")
 DB_NAME = os.getenv("POSTGRES_DB", "supply_chain_telemetry")
 
 # 2. Database connection parameters
-DB_HOST = os.getenv("POSTGRES_HOST", "database") # Defaults to local container name
+DB_HOST = os.getenv("POSTGRES_HOST", "localhost") # Defaults to local container name
 DB_PORT = os.getenv("POSTGRES_PORT", "5432")
 
 DATABASE_URL = f"postgresql://{DB_USER}:{DB_PASSWORD}@{DB_HOST}:{DB_PORT}/{DB_NAME}"
