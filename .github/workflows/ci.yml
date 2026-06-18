@@ -66,6 +66,15 @@ jobs:
         run: |
           psql -h localhost -U postgres -d postgres \
             -c "CREATE DATABASE test_anomaly_db;"
+      - name: Apply migrations to test database
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: my_ultra_secure_password_2026
+          POSTGRES_DB: test_anomaly_db
+          POSTGRES_HOST: localhost
+          POSTGRES_PORT: 5432
+        run: |
+          python -m src.seed_db
 
       - name: Execute Automated Test Suites (Pytest)
         env:
