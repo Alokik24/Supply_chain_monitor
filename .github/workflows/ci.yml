@@ -15,7 +15,7 @@ jobs:
         image: postgres:15-alpine
         env:
           POSTGRES_USER: postgres
-          POSTGRES_PASSWORD: my_ultra_secure_password_2026
+          POSTGRES_PASSWORD: banana
           POSTGRES_DB: supply_chain_telemetry
         ports:
           - 5432:5432
@@ -52,7 +52,7 @@ jobs:
       - name: Apply Database Migrations inside CI
         env:
           POSTGRES_USER: postgres
-          POSTGRES_PASSWORD: my_ultra_secure_password_2026
+          POSTGRES_PASSWORD: banana
           POSTGRES_DB: supply_chain_telemetry
           POSTGRES_HOST: localhost
           POSTGRES_PORT: 5432
@@ -62,14 +62,14 @@ jobs:
 
       - name: Create test database
         env:
-          PGPASSWORD: my_ultra_secure_password_2026
+          PGPASSWORD: banana
         run: |
           psql -h localhost -U postgres -d postgres \
             -c "CREATE DATABASE test_anomaly_db;"
       - name: Apply migrations to test database
         env:
           POSTGRES_USER: postgres
-          POSTGRES_PASSWORD: my_ultra_secure_password_2026
+          POSTGRES_PASSWORD: banana
           POSTGRES_DB: test_anomaly_db
           POSTGRES_HOST: localhost
           POSTGRES_PORT: 5432
@@ -79,7 +79,7 @@ jobs:
       - name: Execute Automated Test Suites (Pytest)
         env:
           POSTGRES_USER: postgres
-          POSTGRES_PASSWORD: my_ultra_secure_password_2026
+          POSTGRES_PASSWORD: banana
           POSTGRES_DB: supply_chain_telemetry
           POSTGRES_HOST: localhost
           POSTGRES_PORT: 5432
