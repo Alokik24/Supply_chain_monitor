@@ -88,6 +88,8 @@ async def test_successful_hot_path_ingestion(override_db):
         base_url="http://testserver",
     ) as client:
         response = await client.post("/readings", json=payload)
+        print("STATUS:", response.status_code)
+        print("BODY:", response.text)
 
         assert response.status_code == 200
         assert response.json()["status"] == "success"
@@ -130,9 +132,15 @@ async def test_ingest_idempotency_deduplication(override_db):
     ) as client:
         first = await client.post("/readings", json=payload)
 
+        print("STATUS: ",first.status_code)
+        print("BODY: ",first.text)
+
         assert first.status_code == 200
 
         second = await client.post("/readings", json=payload)
+
+        print("STATUS: ",second.status_code)
+        print("BODY: ",second.text)
 
         assert second.status_code == 200
         assert second.json()["status"] == "ignored"

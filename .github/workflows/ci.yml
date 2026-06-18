@@ -7,13 +7,13 @@ on:
     branches: [ main ]
 
 jobs:
-  lint-and-test: # FIXED: Removed spaces from job name key
+  lint-and-test:
     runs-on: ubuntu-latest
 
     services:
       postgres_db:
         image: postgres:15-alpine
-        env: # FIXED: Enforced matching development credentials
+        env:
           POSTGRES_USER: postgres
           POSTGRES_PASSWORD: my_ultra_secure_password_2026
           POSTGRES_DB: supply_chain_telemetry
@@ -32,10 +32,10 @@ jobs:
     
     steps:
       - name: Checkout repository code
-        uses: actions/checkout@v4 # UPDATED: latest stable v4
+        uses: actions/checkout@v4
 
       - name: Set up Python Environment
-        uses: actions/setup-python@v5 # FIXED: Removed duplicate dash prefix
+        uses: actions/setup-python@v5
         with:
           python-version: '3.13'
           cache: 'pip'
@@ -59,6 +59,12 @@ jobs:
         run: |
           python data/generate.py
           python -m src.seed_db
+
+      - name: Inspect databases
+        env:
+          PGPASSWORD: my_ultra_secure_password_2026
+        run: |
+          psql -h localhost -U postgres -d supply_chain_telemetry -c "\l"
 
       - name: Execute Automated Test Suites (Pytest)
         env:
