@@ -60,11 +60,12 @@ jobs:
           python data/generate.py
           python -m src.seed_db
 
-      - name: Inspect databases
+      - name: Create test database
         env:
           PGPASSWORD: my_ultra_secure_password_2026
         run: |
-          psql -h localhost -U postgres -d supply_chain_telemetry -c "\l"
+          psql -h localhost -U postgres -d postgres \
+            -c "CREATE DATABASE test_anomaly_db;"
 
       - name: Execute Automated Test Suites (Pytest)
         env:
