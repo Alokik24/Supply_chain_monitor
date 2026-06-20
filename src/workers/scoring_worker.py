@@ -18,11 +18,16 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("ScoringWorker")
 
 # Connect to our synchronized Redis instance to track the watermark
-redis_client = Redis(
-    host=os.getenv("REDIS_HOST", "localhost"),
-    port=int(os.getenv("REDIS_PORT", 6379)),
-    decode_responses=True,
-)
+redis_url = os.getenv("REDIS_URL")
+
+if redis_url:
+    redis_client = Redis.from_url(redis_url, decode_responses=True)
+else:
+    redis_client = Redis(
+        host=os.getenv("REDIS_HOST", "localhost"),
+        port=int(os.getenv("REDIS_PORT", 6379)),
+        decode_responses=True,
+    )
 
 WATERMARK_KEY = "scoring_watermark:last_processed_id"
 

@@ -5,16 +5,16 @@ import psycopg2
 from psycopg2.extras import RealDictCursor
 import redis
 
-# 1. Fetch our hidden environment secrets from the container RAM
-DB_USER = os.getenv("POSTGRES_USER", "postgres")
-DB_PASSWORD = os.getenv("POSTGRES_PASSWORD", "postgres")
-DB_NAME = os.getenv("POSTGRES_DB", "supply_chain_telemetry")
+DATABASE_URL = os.getenv("DATABASE_URL")
 
-# 2. Database connection parameters
-DB_HOST = os.getenv("POSTGRES_HOST", "localhost")  # Defaults to local container name
-DB_PORT = os.getenv("POSTGRES_PORT", "5432")
+if not DATABASE_URL:
+    DB_USER = os.getenv("POSTGRES_USER", "postgres")
+    DB_PASSWORD = os.getenv("POSTGRES_PASSWORD", "postgres")
+    DB_NAME = os.getenv("POSTGRES_DB", "supply_chain_telemetry")
+    DB_HOST = os.getenv("POSTGRES_HOST", "localhost")
+    DB_PORT = os.getenv("POSTGRES_PORT", "5432")
 
-DATABASE_URL = f"postgresql://{DB_USER}:{DB_PASSWORD}@{DB_HOST}:{DB_PORT}/{DB_NAME}"
+    DATABASE_URL = f"postgresql://{DB_USER}:{DB_PASSWORD}@{DB_HOST}:{DB_PORT}/{DB_NAME}"
 
 
 def get_db_connection():
@@ -28,7 +28,13 @@ def get_db_connection():
 
 
 # Redis connecection
-REDIS_HOST = os.getenv("REDIS_HOST", "cache")  # Defaults to local container name
-REDIS_PORT = int(os.getenv("REDIS_PORT", 6379))
+redis_url = os.getenv("REDIS_URL")
 
-redis_client = redis.Redis(host=REDIS_HOST, port=REDIS_PORT, decode_responses=True)
+if redis_url:
+    redis_client = redis.Redis.from_url(redis_url, decode_responses=True)
+else:
+    redis_client = redis.Redis(
+        host=os.getenv("REDIS_HOST", "localhost"),
+        port=int(os.getenv("REDIS_PORT", 6379)),
+        decode_responses=True,
+    )
