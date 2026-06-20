@@ -5,21 +5,32 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy import text
 from src.db import get_db_connection, redis_client
-
+import asyncio
 from src.schemas import SensorReadingCreate
 from src.models import SensorReading
 from src.database import get_db
+from src.workers.scoring_worker import start_worker_daemon
+from contextlib import asynccontextmanager
+from src.routes.anomalies import router as anomaly_router
 
-# @asynccontextmanager
-# async def lifespan(app: FastAPI):
-#     # Startup
-#     async with engine.begin() as conn:
-#         await conn.run_sync(Base.metadata.create_all)
-#     yield
-#     pass
 
-app = FastAPI(title="Supply Chain Anomaly Detection API", version="1.0")
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    # 1. Startup: Spawn the out-of-band machine scoring daemon
+    # Set interval_seconds=5 for local development so anomalies process immediately
+    scoring_task = asyncio.create_task(start_worker_daemon(interval_seconds=5))
+    print(" Cold-path ML scoring worker initialized and running in background.")
+    
+    yield
+    
+    # 2. Shutdown: Cancel the loop cleanly when turning off the server
+    scoring_task.cancel()
+    print(" Cold-path ML scoring worker shut down cleanly.")
 
+app = FastAPI(title="Supply Chain Anomaly Detection API", version="1.0", lifespan=lifespan)
+
+
+app.include_router(anomaly_router)
 
 @app.get("/")
 def read_root():

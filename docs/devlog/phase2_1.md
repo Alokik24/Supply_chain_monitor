@@ -102,3 +102,157 @@ The larger challenge was understanding how applications, databases, containers, 
 By the end of the phase, the project had moved beyond notebooks and offline experiments. For the first time, telemetry could enter the platform through a live interface, pass through validation, persist to a database, and be verified through automated testing.
 
 The anomaly detection models may still be the final destination, but Phase 2 was where the project began to feel like a real system rather than a collection of scripts.
+
+## Phase 2.2: Teaching the System to Think
+
+By the end of the ingestion phase, telemetry could successfully enter the platform and be stored in PostgreSQL. Sensor events were flowing through the API, validation rules were working, and the replay engine could push the synthetic dataset through the system end-to-end.
+
+The platform could receive data.
+
+The platform could store data.
+
+What it still couldn't do was understand any of it.
+
+At that point, the anomaly detection models still existed largely as offline components. They could score historical datasets, but they weren't connected to the live telemetry pipeline. The next challenge was figuring out how incoming sensor readings would eventually become investigation cases.
+
+### The First Architectural Fork
+
+My initial instinct was to perform anomaly scoring directly inside the ingestion API.
+
+A telemetry event would arrive, features would be generated, the model would execute, and the anomaly score would be returned immediately. On paper, it seemed like the most straightforward design.
+
+The more I thought about it, however, the less comfortable it became.
+
+The ingestion service existed for one purpose: accept telemetry and persist it reliably. The anomaly detection workflow had very different requirements. Before a score could even be generated, the system needed historical context, feature engineering, rolling statistics, and machine-state reconstruction. Those operations were computationally expensive and depended on significantly more data than a single incoming event.
+
+Although both components worked with the same telemetry, they were solving fundamentally different problems.
+
+The ingestion path wanted to be fast.
+
+The scoring path wanted to be thorough.
+
+Trying to force both concerns into the same request-response cycle would couple telemetry throughput directly to model execution time.
+
+That realization eventually led to one of the largest architectural decisions in the project: separating the platform into a Hot Path and a Cold Path.
+
+### Separating Ingestion from Analysis
+
+The Hot Path became responsible only for accepting and storing telemetry.
+
+The Cold Path became responsible for everything analytical.
+
+A dedicated scoring worker would periodically wake up, retrieve newly arrived telemetry, reconstruct machine state, generate features, execute machine learning inference, and create anomaly cases.
+
+Conceptually, the system evolved into:
+
+```text
+Telemetry
+    ↓
+Storage
+    ↓
+Scoring Worker
+    ↓
+Feature Engineering
+    ↓
+Model Inference
+    ↓
+Incident Creation
+```
+
+At first this felt like a more complicated architecture because it introduced another moving component into the system. Looking back, it actually simplified the overall design.
+
+The ingestion service no longer needed to understand machine learning.
+
+The scoring service no longer needed to worry about request latency.
+
+Both parts of the platform could evolve independently while remaining connected through shared storage.
+
+### Discovering the Watermark Problem
+
+Once the worker existed, another question immediately appeared.
+
+How would it know which telemetry had already been processed?
+
+My first instinct was surprisingly naive: simply scan the entire telemetry table every time the worker executed.
+
+That idea worked while the dataset was small, but it became obviously wasteful once I considered how the platform would behave over time. Reprocessing historical telemetry repeatedly would cause the amount of work performed by the worker to grow continuously, even when only a handful of new readings had arrived.
+
+The worker needed memory.
+
+Not machine-learning memory.
+
+Operational memory.
+
+That requirement eventually led to the watermark design.
+
+Rather than marking individual records as processed, the worker stores the highest successfully evaluated telemetry identifier inside Redis. Every execution cycle begins from that location and moves forward only after anomaly cases have been committed successfully.
+
+The concept sounds simple now, but it represented an important shift in how I thought about data processing. Instead of repeatedly solving the entire problem, the worker continuously continued from where it had previously stopped.
+
+### Reconstructing Machine State
+
+One of the more interesting challenges came from a design decision made much earlier in the project.
+
+Telemetry is stored using a narrow EAV-style schema. A single physical observation becomes multiple independent sensor records. This approach provides flexibility at the ingestion layer because new sensor types can be added without changing the database structure.
+
+The machine-learning pipeline, however, does not reason about individual sensor events.
+
+It reasons about machine state.
+
+Before anomaly detection could occur, those independent telemetry records had to be reconstructed into a synchronized analytical view representing the conveyor system at a specific point in time.
+
+As a result, a significant portion of the scoring pipeline became feature engineering rather than model execution. Historical windows had to be assembled, rolling statistics calculated, and sensor readings aligned before the model could make a meaningful prediction.
+
+One of the more surprising outcomes of the phase was realizing how little of the overall system was actually machine learning. Considerably more effort went into reconstructing context, managing processing state, and coordinating infrastructure than into training or executing the model itself.
+
+### When the Worker Finally Came Alive
+
+Getting the worker to execute once was relatively straightforward.
+
+Getting it to operate continuously was much harder.
+
+There were issues involving database sessions, Redis connectivity, duplicate anomaly creation, watermark synchronization, feature generation, and Docker networking. For a while, it felt like every problem solved revealed another problem hiding underneath it.
+
+Eventually, the logs started showing something different.
+
+```text
+Rows evaluated = 383
+Anomalies detected = 10
+```
+
+Followed shortly by:
+
+```text
+Cold-path run complete.
+Watermark advanced.
+```
+
+Those messages were surprisingly satisfying.
+
+For the first time, telemetry was flowing through the complete platform.
+
+Events entered through the ingestion API.
+
+The worker discovered them.
+
+The feature pipeline transformed them.
+
+The model evaluated them.
+
+Anomaly cases appeared automatically.
+
+The architecture diagrams were no longer describing a future system. They were describing a system that actually existed.
+
+### Looking Back
+
+At the start of this phase, I thought I was building a scoring pipeline.
+
+Looking back, the scoring pipeline was only a small part of the work.
+
+Most of the effort went into deciding where analytical processing should occur, how historical context should be reconstructed, how processing state should be tracked, and how machine-learning workloads could coexist with operational workloads without interfering with one another.
+
+The anomaly detector remained the visible outcome, but the larger lesson was architectural.
+
+By the end of the phase, the platform had moved beyond simple ingestion and storage. Telemetry could now enter the system continuously, be processed asynchronously, and generate investigation cases without human intervention.
+
+The model may be responsible for identifying anomalies, but Phase 2.2 was where the platform learned how to think about incoming telemetry as an evolving system rather than a collection of isolated sensor readings.
