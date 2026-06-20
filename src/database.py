@@ -7,14 +7,17 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-DATABASE_URL = (
-    f"postgresql+asyncpg://"
-    f"{os.getenv('POSTGRES_USER')}:"
-    f"{os.getenv('POSTGRES_PASSWORD')}@"
-    f"{os.getenv('POSTGRES_HOST')}:"
-    f"{os.getenv('POSTGRES_PORT')}/"
-    f"{os.getenv('POSTGRES_DB')}"
-)
+DATABASE_URL = os.getenv("DATABASE_URL")
+
+if not DATABASE_URL:
+    DATABASE_URL = (
+        f"postgresql+asyncpg://"
+        f"{os.getenv('POSTGRES_USER')}:"
+        f"{os.getenv('POSTGRES_PASSWORD')}@"
+        f"{os.getenv('POSTGRES_HOST')}:"
+        f"{os.getenv('POSTGRES_PORT')}/"
+        f"{os.getenv('POSTGRES_DB')}"
+    )
 
 # High-concurrency optimized pipeline pooling variables
 engine = create_async_engine(DATABASE_URL, echo=False, pool_size=20, max_overflow=0)

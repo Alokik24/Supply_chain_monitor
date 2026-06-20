@@ -30,6 +30,19 @@ Synthetic Telemetry Generator
             │
             ▼
        PostgreSQL
+            │
+            ▼
+     Scoring Worker
+            │
+            ▼
+   Feature Engineering
+            │
+            ▼
+     ML Inference
+            │
+            ▼
+     Anomaly Cases
+
 ```
 
 ### Planned Detection Pipeline
@@ -37,13 +50,13 @@ Synthetic Telemetry Generator
 ```text
 sensor_readings
       ↓
-Feature Store
+Feature Engineering
       ↓
-Anomaly Detection
+Random Forest / Isolation Forest
       ↓
 anomaly_cases
       ↓
-Evidence Engine
+Operator Investigation Workflow
 ```
 
 ## Machine Learning Foundation
@@ -72,6 +85,12 @@ Model development, evaluation methodology, and validation strategy are documente
 - Integration tests
 - Synthetic telemetry generation
 - Health monitoring endpoints
+- Cold-path scoring worker
+- Watermark-based incremental processing
+- Redis feature caching
+- Automated anomaly case creation
+- Anomaly query API
+- Incident lifecycle management
 
 ---
 
@@ -225,6 +244,14 @@ GET /health
 POST /readings
 ```
 
+### Anomaly Detection
+```http
+GET /anomalies
+GET /anomalies/{id}
+PATCH /anomalies/{id}
+GET /anomalies/stats
+GET /anomalies/worker-status
+```
 ---
 
 ## Testing
@@ -246,19 +273,24 @@ Validation methodology and evaluation strategy are documented in:
 
 ## Current Project Status
 
-| Component | Status |
-|------------|---------|
-| Docker Infrastructure | Complete |
-| PostgreSQL Integration | Complete |
-| Redis Integration | Complete |
-| FastAPI Service | Complete |
-| Telemetry Generation | Complete |
-| Async Replay Engine | Complete |
-| Idempotent Ingestion | Complete |
-| Integration Testing | Complete |
-| Feature Store | Planned |
-| Anomaly Detection Service | Planned |
-| Investigation Engine | Planned |
+| Component                    | Status      |
+| ---------------------------- | ----------- |
+| Docker Infrastructure        | Complete    |
+| PostgreSQL Integration       | Complete    |
+| Redis Integration            | Complete    |
+| FastAPI Service              | Complete    |
+| Telemetry Generation         | Complete    |
+| Async Replay Engine          | Complete    |
+| Idempotent Ingestion         | Complete    |
+| Cold Path Scoring Worker     | Complete    |
+| Feature Engineering Pipeline | Complete    |
+| Anomaly Detection Service    | Complete    |
+| Anomaly Case Creation        | Complete    |
+| Investigation Workflow API   | Complete    |
+| Dashboard UI                 | In Progress |
+| Session Isolation            | Planned     |
+| AI Investigation Agent       | Planned     |
+
 
 ---
 
@@ -272,3 +304,5 @@ Validation methodology and evaluation strategy are documented in:
 | ADR-04 | Synthetic Data Limitations & Assumptions |
 | ADR-05 | Telemetry Representation Strategy & Relational Schema Design |
 | ADR-06 | Dataset Audit & Evaluation Validation |
+| ADR-07 | Hot Path Telemetry Ingestion Strategy
+| ADR-08 | Cold Path Scoring Pipeline & Watermark-Based Processing
