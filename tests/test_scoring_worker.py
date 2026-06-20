@@ -17,6 +17,7 @@ from src.workers.scoring_worker import (
     run_scoring_cycle,
     WATERMARK_KEY,
 )
+from unittest.mock import Mock, patch
 
 redis_client = Redis(
     host="localhost",
@@ -24,6 +25,13 @@ redis_client = Redis(
     decode_responses=True,
 )
 
+class FakeModel:
+
+    def predict(self, X):
+        return np.array([1])
+
+    def predict_proba(self, X):
+        return np.array([[0.0, 1.0]])
 
 @pytest.mark.asyncio
 async def test_scoring_worker_advances_watermark():
@@ -125,15 +133,9 @@ async def test_scoring_worker_creates_case_when_model_flags_anomaly():
         session.add_all(readings)
         await session.commit()
 
-    with (
-        patch(
-            "src.workers.scoring_worker.model.predict",
-            return_value=np.array([1]),
-        ),
-        patch(
-            "src.workers.scoring_worker.model.predict_proba",
-            return_value=np.array([[0.0, 1.0]]),
-        ),
+    with patch(
+        "src.workers.scoring_worker.model",
+        FakeModel()
     ):
         await run_scoring_cycle()
 
