@@ -1,10 +1,6 @@
 import streamlit as st
 
-st.set_page_config(
-    page_title="LineGuard",
-    page_icon="🏭",
-    layout="wide"
-)
+st.set_page_config(page_title="LineGuard", page_icon="🏭", layout="wide")
 
 st.title("🏭 LineGuard")
 st.caption("Manufacturing Anomaly Detection & Investigation Platform")
@@ -84,6 +80,4 @@ with c2:
     incident management pipeline.
     """)
 
-st.caption(
-    "Use the sidebar to navigate between pages."
-)
+st.caption("Use the sidebar to navigate between pages.")

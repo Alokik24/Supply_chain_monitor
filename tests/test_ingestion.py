@@ -11,8 +11,9 @@ from sqlalchemy.ext.asyncio import (
     AsyncSession,
 )
 
-from src.database import get_db
+from src.database import get_db, Base
 from src.main import app
+
 
 load_dotenv()
 
@@ -33,12 +34,20 @@ TEST_DATABASE_URL = (
 
 @pytest_asyncio.fixture(scope="session")
 async def test_engine():
+
     engine = create_async_engine(
         TEST_DATABASE_URL,
         echo=False,
     )
 
+    async with engine.begin() as conn:
+        await conn.run_sync(Base.metadata.drop_all)
+        await conn.run_sync(Base.metadata.create_all)
+
     yield engine
+
+    async with engine.begin() as conn:
+        await conn.run_sync(Base.metadata.drop_all)
 
     await engine.dispose()
 
@@ -132,15 +141,15 @@ async def test_ingest_idempotency_deduplication(override_db):
     ) as client:
         first = await client.post("/readings", json=payload)
 
-        print("STATUS: ",first.status_code)
-        print("BODY: ",first.text)
+        print("STATUS: ", first.status_code)
+        print("BODY: ", first.text)
 
         assert first.status_code == 200
 
         second = await client.post("/readings", json=payload)
 
-        print("STATUS: ",second.status_code)
-        print("BODY: ",second.text)
+        print("STATUS: ", second.status_code)
+        print("BODY: ", second.text)
 
         assert second.status_code == 200
         assert second.json()["status"] == "ignored"

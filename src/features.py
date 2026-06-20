@@ -1,7 +1,6 @@
 # src/features.py
 import pandas as pd
 import numpy as np
-from sqlalchemy import Connection
 
 SENSOR_TYPES = ["conveyor_speed", "fill_level", "torque"]
 WINDOW = 30  # 30 observations representing our historical tracking window context
@@ -9,11 +8,9 @@ WINDOW = 30  # 30 observations representing our historical tracking window conte
 # Shared source-of-truth feature list for both train.py and scoring_worker.py
 MODEL_FEATURE_COLUMNS = []
 for sensor in SENSOR_TYPES:
-    MODEL_FEATURE_COLUMNS.extend([
-        f"{sensor}_rolling_std",
-        f"{sensor}_z_score",
-        f"{sensor}_rate_of_change"
-    ])
+    MODEL_FEATURE_COLUMNS.extend(
+        [f"{sensor}_rolling_std", f"{sensor}_z_score", f"{sensor}_rate_of_change"]
+    )
 
 
 def pivot_to_wide(df: pd.DataFrame) -> pd.DataFrame:
@@ -37,7 +34,7 @@ def pivot_to_wide(df: pd.DataFrame) -> pd.DataFrame:
             index=["timestamp", "line_id"], columns="sensor_type", values="id"
         ).reset_index()
         df_ids.columns.name = None
-        
+
         for sensor in SENSOR_TYPES:
             if sensor in df_ids.columns:
                 df_wide[f"{sensor}_reading_id"] = df_ids[sensor]
@@ -54,7 +51,7 @@ def compute_rolling_features(df_wide: pd.DataFrame) -> pd.DataFrame:
 
     for sensor in SENSOR_TYPES:
         if sensor not in df.columns:
-            df[sensor] = np.nan  
+            df[sensor] = np.nan
 
         grouped_roll = df.groupby("line_id")[sensor].transform(
             lambda x: x.rolling(window=WINDOW, min_periods=1).mean()
@@ -100,7 +97,7 @@ def build_feature_matrix(df_narrow: pd.DataFrame) -> pd.DataFrame:
 
     df = pivot_to_wide(df_narrow)
     df = compute_rolling_features(df)
-    df = df.dropna(subset=[f"{s}_rolling_std" for s in SENSOR_TYPES]).copy() 
+    df = df.dropna(subset=[f"{s}_rolling_std" for s in SENSOR_TYPES]).copy()
     df = compute_rate_of_change(df)
     df = compute_delta_from_baseline(df)
     return df
@@ -135,9 +132,7 @@ def fetch_historical_window_dataframe(
     window_size: int = 30,
 ) -> pd.DataFrame:
 
-    sql_query_string = generate_window_fetch_query(
-        window_size=window_size
-    )
+    sql_query_string = generate_window_fetch_query(window_size=window_size)
 
     connection = sync_session.connection()
 

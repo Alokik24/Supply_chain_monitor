@@ -77,7 +77,7 @@ m2.metric("Rows", "129,600")
 m3.metric("Injected Anomalies", "~5%")
 
 st.caption(
-"The dataset simulates conveyor telemetry using torque, conveyor speed, and fill-level sensors."
+    "The dataset simulates conveyor telemetry using torque, conveyor speed, and fill-level sensors."
 )
 
 st.divider()
@@ -119,18 +119,16 @@ c1, c2, c3 = st.columns(3)
 
 with c1:
     st.link_button(
-    "GitHub Repository",
-    "https://github.com/Alokik24/Supply_chain_monitor"
+        "GitHub Repository", "https://github.com/Alokik24/Supply_chain_monitor"
     )
 
 with c2:
     st.link_button(
-    "Architecture Diagrams",
-    "https://github.com/YOUR_REPO/tree/main/docs"
+        "Architecture Diagrams", "https://github.com/YOUR_REPO/tree/main/docs"
     )
 
 with c3:
     st.link_button(
-    "ADRs & Documentation",
-    "https://github.com/Alokik24/Supply_chain_monitor/tree/main/docs"
+        "ADRs & Documentation",
+        "https://github.com/Alokik24/Supply_chain_monitor/tree/main/docs",
     )

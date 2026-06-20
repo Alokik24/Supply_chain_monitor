@@ -7,20 +7,32 @@ from sqlalchemy import select
 from redis import Redis
 from src.database import AsyncSessionLocal
 from src.models import SensorReading, AnomalyCase
-from src.features import fetch_historical_window_dataframe, build_feature_matrix, MODEL_FEATURE_COLUMNS
+from src.features import (
+    fetch_historical_window_dataframe,
+    build_feature_matrix,
+    MODEL_FEATURE_COLUMNS,
+)
+import os
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("ScoringWorker")
 
 # Connect to our synchronized Redis instance to track the watermark
-redis_client = Redis(host="cache", port=6379, decode_responses=True)
+redis_client = Redis(
+    host=os.getenv("REDIS_HOST", "localhost"),
+    port=int(os.getenv("REDIS_PORT", 6379)),
+    decode_responses=True,
+)
+
 WATERMARK_KEY = "scoring_watermark:last_processed_id"
 
 # Safely load the pre-trained ML model artifact
 try:
     model = joblib.load("models/anomaly_detector.pkl")
 except FileNotFoundError:
-    logger.warning("Model file models/anomaly_detector.pkl missing. Using fallback Z-score logic.")
+    logger.warning(
+        "Model file models/anomaly_detector.pkl missing. Using fallback Z-score logic."
+    )
     model = None
 
 
@@ -50,18 +62,30 @@ async def run_scoring_cycle():
             logger.info("No new readings found.")
             return  # The ingestion script hasn't streamed any new data yet
 
-        logger.info(f"Pulled {len(batch_readings)} new raw rows. Processing feature store matrix...")
+        logger.info(
+            f"Pulled {len(batch_readings)} new raw rows. Processing feature store matrix..."
+        )
 
         # 3. Pull lookback history from the database
         df_historical = await db_session.run_sync(fetch_historical_window_dataframe)
 
         # 4. Construct the complete wide dataset context matrix
-        df_current_batch = pd.DataFrame([{
-            "id": r.id, "line_id": r.line_id, "sensor_type": r.sensor_type, 
-            "value": r.value, "timestamp": r.timestamp
-        } for r in batch_readings])
-        
-        df_combined = pd.concat([df_historical, df_current_batch]).drop_duplicates(subset=["id"])
+        df_current_batch = pd.DataFrame(
+            [
+                {
+                    "id": r.id,
+                    "line_id": r.line_id,
+                    "sensor_type": r.sensor_type,
+                    "value": r.value,
+                    "timestamp": r.timestamp,
+                }
+                for r in batch_readings
+            ]
+        )
+
+        df_combined = pd.concat([df_historical, df_current_batch]).drop_duplicates(
+            subset=["id"]
+        )
 
         # 5. Extract wide engineering columns
         feature_df = build_feature_matrix(df_combined)
@@ -71,9 +95,11 @@ async def run_scoring_cycle():
         fallback_series = pd.Series(False, index=feature_df.index)
 
         chunk_mask = (
-            feature_df.get("conveyor_speed_reading_id", fallback_series).isin(new_row_ids) |
-            feature_df.get("fill_level_reading_id", fallback_series).isin(new_row_ids) |
-            feature_df.get("torque_reading_id", fallback_series).isin(new_row_ids)
+            feature_df.get("conveyor_speed_reading_id", fallback_series).isin(
+                new_row_ids
+            )
+            | feature_df.get("fill_level_reading_id", fallback_series).isin(new_row_ids)
+            | feature_df.get("torque_reading_id", fallback_series).isin(new_row_ids)
         )
         eval_df = feature_df[chunk_mask].copy()
 
@@ -101,8 +127,8 @@ async def run_scoring_cycle():
         else:
             # Fallback mathematical heuristic if model is missing
             eval_df["is_anomaly"] = (
-                (eval_df["torque_z_score"].abs() > 3.0) | 
-                (eval_df["conveyor_speed_z_score"].abs() > 3.0)
+                (eval_df["torque_z_score"].abs() > 3.0)
+                | (eval_df["conveyor_speed_z_score"].abs() > 3.0)
             ).astype(int)
             eval_df["score"] = eval_df["torque_z_score"].abs()
 
@@ -113,17 +139,17 @@ async def run_scoring_cycle():
             f"Rows evaluated={len(eval_df)} | "
             f"Anomalies detected={len(anomalies_caught)}"
         )
-                
+
         for _, row in anomalies_caught.iterrows():
             new_case = AnomalyCase(
                 line_id=str(row["line_id"]),
                 timestamp=pd.to_datetime(row["timestamp"]).to_pydatetime(),
                 status="FLAGGED",
-                score=float(row["score"])
+                score=float(row["score"]),
             )
             try:
                 db_session.add(new_case)
-                await db_session.flush() 
+                await db_session.flush()
             except Exception as e:
                 logger.error(f"INSERT FAILED: {e}")
                 await db_session.rollback()
@@ -132,19 +158,24 @@ async def run_scoring_cycle():
             # 9. Cache features in Redis for Phase 3 toolkits
             for sensor in ["conveyor_speed", "fill_level", "torque"]:
                 cache_key = f"features:{row['line_id']}:{sensor}"
-                redis_client.hset(cache_key, mapping={
-                    "rolling_mean_30m": float(row[f"{sensor}_rolling_mean"]),
-                    "rolling_std_30m": float(row[f"{sensor}_rolling_std"]),
-                    "z_score": float(row[f"{sensor}_z_score"])
-                })
-                redis_client.expire(cache_key, 600)  
+                redis_client.hset(
+                    cache_key,
+                    mapping={
+                        "rolling_mean_30m": float(row[f"{sensor}_rolling_mean"]),
+                        "rolling_std_30m": float(row[f"{sensor}_rolling_std"]),
+                        "z_score": float(row[f"{sensor}_z_score"]),
+                    },
+                )
+                redis_client.expire(cache_key, 600)
 
         # Commit cases and advance our high-watermark pointer safely
         await db_session.commit()
-        
+
         highest_id_processed = max(new_row_ids)
         redis_client.set(WATERMARK_KEY, highest_id_processed)
-        logger.info(f"Cold-path run complete. Watermark set to: {highest_id_processed}. Flagged {len(anomalies_caught)} machine incidents.")
+        logger.info(
+            f"Cold-path run complete. Watermark set to: {highest_id_processed}. Flagged {len(anomalies_caught)} machine incidents."
+        )
 
 
 async def start_worker_daemon(interval_seconds: int = 10):

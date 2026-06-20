@@ -3,10 +3,7 @@ import requests
 import pandas as pd
 from streamlit_autorefresh import st_autorefresh
 
-st_autorefresh(
-    interval=5000,
-    key="dashboard_refresh"
-)
+st_autorefresh(interval=5000, key="dashboard_refresh")
 
 API_BASE = "http://localhost:8000"
 
@@ -21,21 +18,13 @@ within a few minutes.
 """)
 
 try:
+    stats = requests.get(f"{API_BASE}/anomalies/stats").json()
 
-    stats = requests.get(
-        f"{API_BASE}/anomalies/stats"
-    ).json()
+    worker = requests.get(f"{API_BASE}/anomalies/worker-status").json()
 
-    worker = requests.get(
-        f"{API_BASE}/anomalies/worker-status"
-    ).json()
-
-    anomalies = requests.get(
-        f"{API_BASE}/anomalies"
-    ).json()
+    anomalies = requests.get(f"{API_BASE}/anomalies").json()
 
 except Exception as e:
-
     st.error(f"Unable to connect to backend API: {e}")
     st.stop()
 
@@ -72,9 +61,7 @@ if worker["watermark"] > st.session_state.last_watermark:
 else:
     worker_col1.warning("No New Processing")
 
-worker_col2.info(
-    f"Watermark: {worker['watermark']}"
-)
+worker_col2.info(f"Watermark: {worker['watermark']}")
 
 st.session_state.last_watermark = worker["watermark"]
 
@@ -87,11 +74,7 @@ st.divider()
 st.subheader("Incident Distribution")
 
 if not df.empty:
-
-    status_counts = (
-        df["status"]
-        .value_counts()
-    )
+    status_counts = df["status"].value_counts()
 
     st.bar_chart(status_counts)
 
@@ -105,11 +88,7 @@ st.subheader("Recent Incidents")
 
 recent_df = df.head(20)
 
-st.dataframe(
-    recent_df,
-    use_container_width=True,
-    height=350
-)
+st.dataframe(recent_df, use_container_width=True, height=350)
 
 st.divider()
 
@@ -120,23 +99,15 @@ st.divider()
 st.subheader("Case Management")
 
 if not df.empty:
-
     case_lookup = {
-        f"Case #{row['id']} | {row['status']}":
-        row["id"]
-        for row in anomalies[:50]
+        f"Case #{row['id']} | {row['status']}": row["id"] for row in anomalies[:50]
     }
 
-    selected = st.selectbox(
-        "Select Incident",
-        list(case_lookup.keys())
-    )
+    selected = st.selectbox("Select Incident", list(case_lookup.keys()))
 
     selected_id = case_lookup[selected]
 
-    case = requests.get(
-        f"{API_BASE}/anomalies/{selected_id}"
-    ).json()
+    case = requests.get(f"{API_BASE}/anomalies/{selected_id}").json()
 
     left, right = st.columns([2, 1])
 
@@ -144,27 +115,13 @@ if not df.empty:
         st.json(case)
 
     with right:
-
         new_status = st.selectbox(
-            "Update Status",
-            [
-                "FLAGGED",
-                "INVESTIGATING",
-                "RESOLVED",
-                "FALSE_POSITIVE"
-            ]
+            "Update Status", ["FLAGGED", "INVESTIGATING", "RESOLVED", "FALSE_POSITIVE"]
         )
 
-        if st.button(
-            "Update Incident Status",
-            use_container_width=True
-        ):
-
+        if st.button("Update Incident Status", use_container_width=True):
             requests.patch(
-                f"{API_BASE}/anomalies/{selected_id}",
-                json={
-                    "status": new_status
-                }
+                f"{API_BASE}/anomalies/{selected_id}", json={"status": new_status}
             )
 
             st.success("Status Updated")

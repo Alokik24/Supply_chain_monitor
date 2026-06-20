@@ -20,17 +20,21 @@ async def lifespan(app: FastAPI):
     # Set interval_seconds=5 for local development so anomalies process immediately
     scoring_task = asyncio.create_task(start_worker_daemon(interval_seconds=5))
     print(" Cold-path ML scoring worker initialized and running in background.")
-    
+
     yield
-    
+
     # 2. Shutdown: Cancel the loop cleanly when turning off the server
     scoring_task.cancel()
     print(" Cold-path ML scoring worker shut down cleanly.")
 
-app = FastAPI(title="Supply Chain Anomaly Detection API", version="1.0", lifespan=lifespan)
+
+app = FastAPI(
+    title="Supply Chain Anomaly Detection API", version="1.0", lifespan=lifespan
+)
 
 
 app.include_router(anomaly_router)
+
 
 @app.get("/")
 def read_root():

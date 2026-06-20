@@ -36,7 +36,6 @@ async def test_scoring_worker_advances_watermark():
     line_id = f"Test_Watermark_{uuid4().hex[:8]}"
 
     async with AsyncSessionLocal() as session:
-
         now = datetime.now(timezone.utc)
 
         readings = [
@@ -61,9 +60,7 @@ async def test_scoring_worker_advances_watermark():
         ]
 
         result = await session.execute(
-            select(SensorReading.id)
-            .order_by(SensorReading.id.desc())
-            .limit(1)
+            select(SensorReading.id).order_by(SensorReading.id.desc()).limit(1)
         )
 
         last_id = result.scalar() or 0
@@ -94,7 +91,6 @@ async def test_scoring_worker_creates_case_when_model_flags_anomaly():
     line_id = f"Test_Alpha_{uuid4().hex[:8]}"
 
     async with AsyncSessionLocal() as session:
-
         now = datetime.now(timezone.utc)
 
         readings = [
@@ -119,9 +115,7 @@ async def test_scoring_worker_creates_case_when_model_flags_anomaly():
         ]
 
         result = await session.execute(
-            select(SensorReading.id)
-            .order_by(SensorReading.id.desc())
-            .limit(1)
+            select(SensorReading.id).order_by(SensorReading.id.desc()).limit(1)
         )
 
         last_id = result.scalar() or 0
@@ -144,10 +138,8 @@ async def test_scoring_worker_creates_case_when_model_flags_anomaly():
         await run_scoring_cycle()
 
     async with AsyncSessionLocal() as session:
-
         result = await session.execute(
-            select(AnomalyCase)
-            .where(AnomalyCase.line_id == line_id)
+            select(AnomalyCase).where(AnomalyCase.line_id == line_id)
         )
 
         cases = result.scalars().all()

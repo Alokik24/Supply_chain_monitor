@@ -3,6 +3,7 @@
 from pydantic import BaseModel
 from datetime import datetime
 
+
 class AnomalyResponse(BaseModel):
     id: int
     line_id: str
@@ -10,9 +11,7 @@ class AnomalyResponse(BaseModel):
     status: str
     score: float
 
-    model_config = {
-        "from_attributes": True
-    }
+    model_config = {"from_attributes": True}
 
 
 class AnomalyStatusUpdate(BaseModel):

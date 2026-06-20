@@ -4,7 +4,7 @@ from sqlalchemy import BigInteger, String, DateTime, UniqueConstraint, ForeignKe
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from src.database import Base
 from datetime import datetime, timezone
-from typing import List, Optional
+from typing import List
 
 
 class SensorReading(Base):
@@ -29,11 +29,11 @@ class AnomalyCase(Base):
     __tablename__ = "anomaly_cases"
 
     id: Mapped[int] = mapped_column(BigInteger, primary_key=True)
-    
+
     # Option A: Machine-state coordinates replacing point reading IDs
     line_id: Mapped[str] = mapped_column(String(50), nullable=False)
     timestamp: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
-    
+
     status: Mapped[str] = mapped_column(String(30), default="FLAGGED")
     score: Mapped[float] = mapped_column(Float, nullable=False)
     created_at: Mapped[datetime] = mapped_column(
@@ -46,9 +46,7 @@ class AnomalyCase(Base):
     )
 
     __table_args__ = (
-        UniqueConstraint(
-            "line_id", "timestamp", name="uq_line_timestamp_case"
-        ),
+        UniqueConstraint("line_id", "timestamp", name="uq_line_timestamp_case"),
     )
 
 
@@ -63,4 +61,6 @@ class Evidence(Base):
     value: Mapped[str] = mapped_column(String(255), nullable=False)
     confidence: Mapped[float] = mapped_column(Float, nullable=False)
 
-    case: Mapped["AnomalyCase"] = relationship("AnomalyCase", back_populates="evidence_logs")
+    case: Mapped["AnomalyCase"] = relationship(
+        "AnomalyCase", back_populates="evidence_logs"
+    )
