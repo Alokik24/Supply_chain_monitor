@@ -11,7 +11,8 @@ logging.basicConfig(
 )
 logger = logging.getLogger("TelemetryStreamer")
 
-API_URL = "http://localhost:8000/readings"
+# API_URL = "http://localhost:8000/readings"
+API_URL = "https://lineguard-webapi.onrender.com/readings"
 CSV_FILE_PATH = "data/sensor_data.csv"
 
 
