@@ -4,12 +4,7 @@ import csv
 import logging
 import time
 import httpx
-import uuid
-
-DEMO_LINE_ID = f"demo_{uuid.uuid4().hex[:8]}"
-
-DEMO_MODE = True
-
+import os
 
 # Configure logging to monitor real-time pipeline velocity metrics
 logging.basicConfig(
@@ -17,10 +12,12 @@ logging.basicConfig(
 )
 logger = logging.getLogger("TelemetryStreamer")
 
-API_URL = "http://localhost:8000/readings"
-# API_URL = "https://lineguard-webapi.onrender.com/readings"
-# CSV_FILE_PATH = "data/sensor_data.csv"
-CSV_FILE_PATH = "data/demo_sensor_data.csv"
+
+API_URL = os.getenv(
+    "API_URL",
+    "http://localhost:8000/readings",
+)
+CSV_FILE_PATH = "data/sensor_data.csv"
 
 
 
@@ -79,14 +76,10 @@ async def stream_csv_pipeline(
 
                 for row in reader:
                     line_id = (
-                        line_id_override
-                        if line_id_override is not None
-                        else (
-                            DEMO_LINE_ID
-                            if DEMO_MODE
-                            else row["line_id"]
-                        )
-                    )
+                    line_id_override
+                    if line_id_override is not None
+                    else row["line_id"]
+                )
                     timestamp_raw = row["timestamp"]
 
                     # Normalizing columns into independent narrow metrics arrays
