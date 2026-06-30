@@ -5,9 +5,39 @@ from streamlit_autorefresh import st_autorefresh
 
 st_autorefresh(interval=5000, key="dashboard_refresh")
 
-API_BASE = "http://localhost:8000"
+API_BASE = "https://lineguard-webapi.onrender.com"
+
+if "demo_line_id" not in st.session_state:
+    st.session_state.demo_line_id = None
 
 st.title("⚙️ Operations Center")
+
+if st.button("▶ Run Demo", use_container_width=True):
+
+    response = requests.post(
+        f"{API_BASE}/demo/start",
+        timeout=30
+    )
+
+    st.write("Status:", response.status_code)
+    st.write("Raw Response:")
+    st.code(response.text)
+
+    if not response.ok:
+        st.stop()
+
+    payload = response.json()
+
+    if "demo_line_id" not in payload:
+        st.error("Backend did not return demo_line_id")
+        st.json(payload)
+        st.stop()
+
+    st.session_state.demo_line_id = payload["demo_line_id"]
+
+    st.success(f"Demo started: {payload['demo_line_id']}")
+
+    st.rerun()
 
 st.warning("""
 Demo Mode Active
@@ -18,15 +48,39 @@ within a few minutes.
 """)
 
 try:
-    stats = requests.get(f"{API_BASE}/anomalies/stats").json()
+    # stats = requests.get(f"{API_BASE}/anomalies/stats").json()
 
-    worker = requests.get(f"{API_BASE}/anomalies/worker-status").json()
+    response = requests.get(
+    f"{API_BASE}/anomalies/worker-status"
+    )
 
-    anomalies = requests.get(f"{API_BASE}/anomalies").json()
+    st.write("Status:", response.status_code)
+
+    worker = response.json()
+
+    st.write(worker)
+    if st.session_state.demo_line_id:
+
+        anomalies = requests.get(
+            f"{API_BASE}/anomalies",
+            params={
+                "line_id": st.session_state.demo_line_id
+            }
+        ).json()
+
+    else:
+        anomalies = []
+
 
 except Exception as e:
     st.error(f"Unable to connect to backend API: {e}")
     st.stop()
+
+if st.session_state.demo_line_id:
+    st.info(
+        f"Active Demo: {st.session_state.demo_line_id}"
+    )
+
 
 df = pd.DataFrame(anomalies)
 
@@ -38,10 +92,10 @@ st.subheader("System Metrics")
 
 c1, c2, c3, c4 = st.columns(4)
 
-c1.metric("Total Cases", stats["total_cases"])
-c2.metric("Flagged", stats["flagged"])
-c3.metric("Investigating", stats["investigating"])
-c4.metric("Resolved", stats["resolved"])
+# c1.metric("Total Cases", stats["total_cases"])
+# c2.metric("Flagged", stats["flagged"])
+# c3.metric("Investigating", stats["investigating"])
+# c4.metric("Resolved", stats["resolved"])
 
 st.divider()
 

@@ -16,7 +16,7 @@ SIGMA_FILL = 9  # %    (was 1)
 def generate_hardware_wide_data():
     np.random.seed(42)
 
-    days = 90
+    days = 1
     records = days * 24 * 60  # 129,600 one-minute samples
 
     # Fixed wall-clock origin — datetime.now() drifts across reruns and breaks any downstream test or notebook that expects stable timestamp values.
@@ -115,7 +115,9 @@ def generate_hardware_wide_data():
     )
 
     os.makedirs("data", exist_ok=True)
-    output_path = "data/sensor_data.csv"
+    # output_path = "data/sensor_data.csv"
+    output_path = "data/demo_sensor_data.csv"
+
     df.to_csv(output_path, index=False)
 
     # ── 6. Verification summary ────────────────────────────────────────────────
