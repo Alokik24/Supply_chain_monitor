@@ -12,7 +12,7 @@ from src.database import get_db, Base, engine
 from src.workers.scoring_worker import start_worker_daemon
 from contextlib import asynccontextmanager
 from src.routes.anomalies import router as anomaly_router
-from src.routes.demo import router as demo_router
+
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -38,7 +38,7 @@ app = FastAPI(
 
 
 app.include_router(anomaly_router)
-app.include_router(demo_router)
+
 
 @app.get("/")
 def read_root():

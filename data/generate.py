@@ -116,7 +116,7 @@ def generate_hardware_wide_data():
 
     os.makedirs("data", exist_ok=True)
     # output_path = "data/sensor_data.csv"
-    output_path = "data/demo_sensor_data.csv"
+    output_path = "data/sensor_data.csv"
 
     df.to_csv(output_path, index=False)
 
