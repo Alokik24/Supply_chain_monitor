@@ -1,0 +1,8 @@
+The assistant should revert the following changes:
+- Remove dashboard service from docker-compose.yml
+- Remove dashboard docs from README.md
+- Remove src/routes/sensors.py
+- Remove dashboard/streamlit_app.py
+- Remove AnomalyCreate from src/schema/anomaly.py
+- Remove API route additions and sensor router import/include from src/main.py
+- Restore src/routes/anomalies.py to original state with only existing endpoints

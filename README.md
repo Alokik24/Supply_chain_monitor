@@ -9,41 +9,7 @@ The platform ingests high-volume sensor telemetry, enforces idempotent writes, s
 ---
 
 ## Current System Architecture
-
-```text
-Synthetic Telemetry Generator
-            │
-            ▼
-        CSV Dataset
-            │
-            ▼
-   Async Replay Engine
-            │
-            ▼
-        FastAPI API
-            │
-            ▼
-   Pydantic Validation
-            │
-            ▼
-  Idempotent Upsert Layer
-            │
-            ▼
-       PostgreSQL
-            │
-            ▼
-     Scoring Worker
-            │
-            ▼
-   Feature Engineering
-            │
-            ▼
-     ML Inference
-            │
-            ▼
-     Anomaly Cases
-
-```
+![System architecture](docs/assets/arch.svg)
 
 ### Planned Detection Pipeline
 
@@ -204,13 +170,13 @@ pytest tests/
 
 ### sensor_readings
 
-| Column | Type |
-|----------|----------|
-| id | BIGINT (automatically acting as BIGSERIAL) |
-| line_id | VARCHAR(50) |
-| sensor_type | VARCHAR(50) |
-| value | DOUBLE PRECISION |
-| timestamp | TIMESTAMP WITH TIME ZONE |
+| Column      | Type                                       |
+| ----------- | ------------------------------------------ |
+| id          | BIGINT (automatically acting as BIGSERIAL) |
+| line_id     | VARCHAR(50)                                |
+| sensor_type | VARCHAR(50)                                |
+| value       | DOUBLE PRECISION                           |
+| timestamp   | TIMESTAMP WITH TIME ZONE                   |
 
 Design rationale and schema tradeoffs are documented in:
 
@@ -229,7 +195,6 @@ LIMIT 5;
 
 The database was successfully populated through the replay engine and now serves as the primary telemetry event ledger.
 
-
 ## API Reference
 
 ### Health Check
@@ -245,6 +210,7 @@ POST /readings
 ```
 
 ### Anomaly Detection
+
 ```http
 GET /anomalies
 GET /anomalies/{id}
@@ -252,6 +218,7 @@ PATCH /anomalies/{id}
 GET /anomalies/stats
 GET /anomalies/worker-status
 ```
+
 ---
 
 ## Testing
@@ -291,18 +258,17 @@ Validation methodology and evaluation strategy are documented in:
 | Session Isolation            | Planned     |
 | AI Investigation Agent       | Planned     |
 
-
 ---
 
 ## Architecture Decision Records
 
-| ADR | Description |
-|------|-------------|
-| ADR-01 | Storage & Ingestion Baseline Selection |
-| ADR-02 | Data Generation Strategy & Mathematical Profiles |
-| ADR-03 | Model Evaluation Framework |
-| ADR-04 | Synthetic Data Limitations & Assumptions |
+| ADR    | Description                                                  |
+| ------ | ------------------------------------------------------------ |
+| ADR-01 | Storage & Ingestion Baseline Selection                       |
+| ADR-02 | Data Generation Strategy & Mathematical Profiles             |
+| ADR-03 | Model Evaluation Framework                                   |
+| ADR-04 | Synthetic Data Limitations & Assumptions                     |
 | ADR-05 | Telemetry Representation Strategy & Relational Schema Design |
-| ADR-06 | Dataset Audit & Evaluation Validation |
-| ADR-07 | Hot Path Telemetry Ingestion Strategy
-| ADR-08 | Cold Path Scoring Pipeline & Watermark-Based Processing
+| ADR-06 | Dataset Audit & Evaluation Validation                        |
+| ADR-07 | Hot Path Telemetry Ingestion Strategy                        |
+| ADR-08 | Cold Path Scoring Pipeline & Watermark-Based Processing      |

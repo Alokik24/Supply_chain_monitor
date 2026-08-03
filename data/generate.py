@@ -16,7 +16,7 @@ SIGMA_FILL = 9  # %    (was 1)
 def generate_hardware_wide_data():
     np.random.seed(42)
 
-    days = 1
+    days = 90
     records = days * 24 * 60  # 129,600 one-minute samples
 
     # Fixed wall-clock origin — datetime.now() drifts across reruns and breaks any downstream test or notebook that expects stable timestamp values.
@@ -106,7 +106,7 @@ def generate_hardware_wide_data():
     df = pd.DataFrame(
         {
             "timestamp": timestamps,
-            "line_id": "Line_1",
+            "line_id": "Line_4",
             "torque": torque,
             "conveyor_speed": speed,
             "fill_level": fill_level,
